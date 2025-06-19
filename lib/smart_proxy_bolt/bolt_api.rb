@@ -1,15 +1,15 @@
 require 'sinatra'
-require 'smart_proxy_example/example'
-require 'smart_proxy_example/example_main'
+require 'smart_proxy_bolt/bolt'
+require 'smart_proxy_bolt/bolt_main'
 
-module Proxy::Example
+module Proxy::Bolt
 
   class Api < ::Sinatra::Base
     include ::Proxy::Log
     helpers ::Proxy::Helpers
 
     get '/hello' do
-      Proxy::Example.say_hello
+      Proxy::Bolt.say_hello
     end
   end
 end
