@@ -1,5 +1,5 @@
 require 'smart_proxy_bolt/bolt_api'
 
-map '/example' do
+map '/bolt' do
   run Proxy::Bolt::Api
 end

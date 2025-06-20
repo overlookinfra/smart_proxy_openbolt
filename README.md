@@ -1,3 +1,3 @@
-# Smart Proxy - Example
+# Smart Proxy - Bolt
 
-This plug-in adds support for Example to Foreman's Smart Proxy.
+This plug-in adds support for Bolt to Foreman's Smart Proxy.

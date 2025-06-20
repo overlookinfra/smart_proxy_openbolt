@@ -1,3 +1,4 @@
 ---
 :enabled: true
-:hello_greeting: 'O hai!'
+:environment_path: /etc/puppetlabs/code/environments/production
+:workers: 10
