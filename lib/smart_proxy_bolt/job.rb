@@ -3,12 +3,14 @@ require 'thread'
 module Proxy::Bolt
   class Job
     attr_accessor :id
-    attr_reader :name, :parameters, :status, :result, :error
+    attr_reader :name, :parameters, :transport, :options, :status, :result, :error
 
-    def initialize(name, parameters)
+    def initialize(name, parameters, transport, options)
       @id         = nil
       @name       = name
       @parameters = parameters
+      @transport  = transport
+      @options    = options
       @status     = :pending
       @mutex      = Mutex.new
     end
@@ -21,6 +23,11 @@ module Proxy::Bolt
     def process
       update_status(:running)
       value = execute
+      value = begin
+                JSON.parse(value)
+              rescue JSON::ParserError
+                value
+              end
       store_result(value)
       update_status(:complete)
     rescue => e

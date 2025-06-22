@@ -2,3 +2,5 @@
 :enabled: true
 :environment_path: /etc/puppetlabs/code/environments/production
 :workers: 10
+:concurrency: 100
+:connect_timeout: 30
