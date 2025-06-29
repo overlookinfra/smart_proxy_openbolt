@@ -1,5 +1,6 @@
 require 'open3'
 require 'smart_proxy_bolt/executor'
+require 'smart_proxy_bolt/error'
 
 module Proxy::Bolt
   extend ::Proxy::Util
@@ -24,24 +25,25 @@ module Proxy::Bolt
       'trace'            => :boolean,
       'log-level'        => ['error', 'warning', 'info', 'debug', 'trace'],
     }
-
     VALID_TRANSPORTS = ['ssh', 'winrm']
-
-    def initialize
-      @tasks = nil
-    end
+    @@mutex = Mutex.new
 
     def executor
       @executor ||= Proxy::Bolt::Executor.instance
     end
 
     def tasks(reload: false)
-      @tasks = nil if reload
-      @tasks || reload_tasks
+      # If we need to reload, only one instance of the reload
+      # should happen at once. Make others wait until it is
+      # finished.
+      @@mutex.synchronize do
+        @tasks = nil if reload
+        @tasks || reload_tasks
+      end
     end
 
     def reload_tasks
-      @tasks = {}
+      task_data = {}
 
       # Get a list of all tasks
       command = "bolt task show --project #{Proxy::Bolt::Plugin.settings.environment_path} --format json"
@@ -95,13 +97,12 @@ module Proxy::Bolt
             command: command,
           )
         end
-        @tasks[name] = {
+        task_data[name] = {
           'description' => metadata['description'] || '',
           'parameters'  => metadata['parameters'] || {},
         }
       end
-
-      @tasks
+      @tasks = task_data
     end
 
     def run_task(data)
@@ -142,30 +143,32 @@ module Proxy::Bolt
       # Validate transport
       raise Proxy::Bolt::Error.new(message: "Invalid transport specified. Must be one of #{VALID_TRANSPORTS}.") unless VALID_TRANSPORTS.include?(transport)
       
+      options ||= {}
       # Validate options
-      if options
-        raise Proxy::Bolt::Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
-        unknown = options.keys - VALID_OPTIONS.keys
-        raise Proxy::Bolt::Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
+      raise Proxy::Bolt::Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
+      # Inject the log-level param if it doesn't exist so we always get something
+      # for the log file.
+      options['log-level'] ||= 'debug'
+      unknown = options.keys - VALID_OPTIONS.keys
+      raise Proxy::Bolt::Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
 
-        options = options.map do |key, value|
-          type = VALID_OPTIONS[key]
-          value ||= '' # In case it's nil somehow
-          case type
-          when :boolean
-            value = value.downcase
-            raise Proxy::Bolt::Error.new(message: "Option #{key} must be a boolean 'true' or 'false'.") unless ['true', 'false'].include?(value)
-            value = value == 'true'
-          when :string
-            value = value.strip
-            raise Proxy::Bolt::Error.new(message: "Option #{key} must have a value when the option is specified.") if value.empty?
-          when is_a?(Array)
-            value = value.strip
-            raise Proxy::Bolt::Error.new(message: "Option #{key} must have one of the following values: #{VALID_OPTIONS[key]}") unless VALID_OPTIONS[key].include?(value)
-          end
-          [key, value]
-        end.to_h
-      end
+      options = options.map do |key, value|
+        type = VALID_OPTIONS[key]
+        value ||= '' # In case it's nil somehow
+        case type
+        when :boolean
+          value = value.downcase
+          raise Proxy::Bolt::Error.new(message: "Option #{key} must be a boolean 'true' or 'false'.") unless ['true', 'false'].include?(value)
+          value = value == 'true'
+        when :string
+          value = value.strip
+          raise Proxy::Bolt::Error.new(message: "Option #{key} must have a value when the option is specified.") if value.empty?
+        when is_a?(Array)
+          value = value.strip
+          raise Proxy::Bolt::Error.new(message: "Option #{key} must have one of the following values: #{VALID_OPTIONS[key]}") unless VALID_OPTIONS[key].include?(value)
+        end
+        [key, value]
+      end.to_h
 
       ### Run the task ###
       task = TaskJob.new(name, params, transport, options, targets)
@@ -183,24 +186,38 @@ module Proxy::Bolt
     end
 
     def get_result(id)
-      return {
-        result: @executor.result(id)
-      }.to_json
-    end
-
-    def get_error(id)
-      e = @executor.error(id)
-      if e.is_a?(Proxy::Bolt::Error)
-        e = e.to_json
+      value = @executor.result(id)
+      status = @executor.status(id)
+      if status == :failure
+        #TODO: Make this less silly
+        if value.is_a?(Proxy::Bolt::Error)
+          value = value.to_json
+        else
+          value = { error: value }.to_json
+        end
       else
-        e = { error: e }.to_json
+        value = { result: value }.to_json
       end
-      e
+      value
     end
 
-    def bolt(command)
+    def bolt(command, logfile=nil, resultfile=nil)
+      # The full execution log is printed on stderr, and the result
+      # is printed on stdout
       env = { 'BOLT_GEM' => 'true', 'BOLT_DISABLE_ANALYTICS' => 'true' }
-      Open3.capture2e(env, *command.split)
+      if logfile.nil? && resultfile.nil?
+        Open3.capture2e(env, *command.split)
+      else
+        stdout, stderr, status = Open3.capture3(env, *command.split)
+        if logfile
+          File.open(logfile, 'w') do |f| 
+            f.puts("Command: #{command}")
+            f.write(stderr)
+          end
+        end
+        File.open(resultfile, 'w') { |f| f.write(stdout) } if resultfile
+        [stdout, status]
+      end
     end
   end
 end

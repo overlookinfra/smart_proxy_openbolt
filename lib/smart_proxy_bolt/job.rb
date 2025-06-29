@@ -3,7 +3,7 @@ require 'thread'
 module Proxy::Bolt
   class Job
     attr_accessor :id
-    attr_reader :name, :parameters, :transport, :options, :status, :result, :error
+    attr_reader :name, :parameters, :transport, :options, :status, :result
 
     def initialize(name, parameters, transport, options)
       @id         = nil
@@ -19,7 +19,8 @@ module Proxy::Bolt
       raise NotImplementedError, "You must call #execute on a subclass of Job"
     end
 
-    # Called by worker
+    # Called by worker. The subclass (e.g. TaskJob) should raise an exception if the
+    # result was not completely successful (e.g. task on one of the nodes failed).
     def process
       update_status(:running)
       value = execute
@@ -29,10 +30,10 @@ module Proxy::Bolt
                 value
               end
       store_result(value)
-      update_status(:complete)
+      update_status(:success)
     rescue => e
-      store_error(e)
-      update_status(:failed)
+      store_result(e)
+      update_status(:failure)
     end
 
     private
@@ -43,10 +44,6 @@ module Proxy::Bolt
 
     def store_result(value)
       @mutex.synchronize { @result = value }
-    end
-
-    def store_error(e)
-      @mutex.synchronize { @error = e }
     end
   end
 end

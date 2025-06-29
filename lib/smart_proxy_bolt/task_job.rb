@@ -13,7 +13,13 @@ module Proxy::Bolt
 
     def execute
       command = get_cmd
-      output, status = Proxy::Bolt.bolt(command)
+      logfile = nil
+      resultfile = nil
+      unless @id.nil?
+        logfile = "#{Proxy::Bolt::Plugin.settings.log_dir}/#{@id}.log"
+        resultfile = "#{Proxy::Bolt::Plugin.settings.log_dir}/#{@id}.json"
+      end
+      output, status = Proxy::Bolt.bolt(command, logfile, resultfile)
       unless status.exitstatus.zero?
         raise Proxy::Bolt::CliError.new(
           message:  'Bolt task execution exited with non-zero status.',
@@ -22,7 +28,7 @@ module Proxy::Bolt
           command:  command,
         )
       end
-      output
+      resultfile.nil? ? output : File.read(resultfile) 
     end
 
     def get_cmd

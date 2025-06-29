@@ -34,11 +34,6 @@ module Proxy::Bolt
       @jobs[id]&.result
     end
 
-    def error(id)
-      return :invalid unless @jobs.keys.include?(id)
-      @jobs[id]&.error
-    end
-
     # How many workers are currently busy
     def num_running
       @pool.length
