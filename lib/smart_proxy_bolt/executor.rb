@@ -25,13 +25,15 @@ module Proxy::Bolt
     end
 
     def status(id)
-      return :invalid unless @jobs.keys.include?(id)
-      @jobs[id]&.status
+      job = get_job(id)
+      return :invalid unless job
+      job&.status
     end
 
     def result(id)
-      return :invalid unless @jobs.keys.include?(id)
-      @jobs[id]&.result
+      job = get_job(id)
+      return :invalid unless job
+      job.result
     end
 
     # How many workers are currently busy
@@ -59,6 +61,31 @@ module Proxy::Bolt
     def shutdown(timeout)
       @pool.shutdown
       @pool.wait_for_termination(SHUTDOWN_TIMEOUT)
+    end
+
+    private
+
+    def get_job(id)
+      return @jobs[id] if @jobs.keys.include?(id)
+      # Look on disk for a past run that may have happened
+      job = nil
+      file = "#{Proxy::Bolt::Plugin.settings.log_dir}/#{id}.json"
+      if File.exist?(file)
+        begin
+          data = JSON.parse(File.read(file))
+          return nil if data['schema'].nil? || data['schema'] != 1
+          return nil if data['status'].nil?
+          # This is only for reading back status and result. Don't try
+          # to fill in the other arguments correctly, and don't assume
+          # they are there after execution.
+          job = Job.new(nil, nil, nil, nil)
+          job.id = id
+          job.update_status(data['status'].to_sym)
+          @jobs[id] = job
+        rescue JSON::ParserError
+        end
+      end
+      job
     end
   end
 end

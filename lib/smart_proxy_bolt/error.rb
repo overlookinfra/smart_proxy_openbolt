@@ -28,13 +28,14 @@ module Proxy::Bolt
   end
 
   class CliError < Error
-    attr_accessor :exitcode, :output, :command
+    attr_accessor :exitcode, :stdout, :stderr, :command
 
-    def initialize(message:, exitcode:, output:, command:)
+    def initialize(message:, exitcode:, stdout:, stderr:, command:)
       super(
         message:  message,
         exitcode: exitcode,
-        output:   output,
+        stdout:   stdout,
+        stderr:   stderr,
         command:  command,
       )
     end

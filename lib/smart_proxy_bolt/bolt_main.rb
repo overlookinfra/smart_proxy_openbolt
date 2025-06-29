@@ -32,6 +32,7 @@ module Proxy::Bolt
       @executor ||= Proxy::Bolt::Executor.instance
     end
 
+    # /tasks or /tasks/reload
     def tasks(reload: false)
       # If we need to reload, only one instance of the reload
       # should happen at once. Make others wait until it is
@@ -43,22 +44,26 @@ module Proxy::Bolt
     end
 
     def reload_tasks
+      # DEBUG: Remove this
+      @tasks = JSON.parse(File.read('/tasks'))
+      return
       task_data = {}
 
       # Get a list of all tasks
       command = "bolt task show --project #{Proxy::Bolt::Plugin.settings.environment_path} --format json"
-      output, status = bolt(command)
+      stdout, stderr, status = bolt(command)
       unless status.exitstatus.zero?
         raise Proxy::Bolt::CliError.new(
           message:  'Error occurred when fetching tasks names.',
           exitcode: status.exitstatus,
-          output:   output,
+          stdout:   stdout,
+          stderr:   stderr,
           command:  command,
         )
       end
       task_names = []
       begin
-        task_names = JSON.parse(output)['tasks'].map { |t| t[0] }
+        task_names = JSON.parse(stdout)['tasks'].map { |t| t[0] }
       rescue JSON::ParserError => e
         raise Proxy::Bolt::Error.new(
           message:   "Error occurred when parsing 'bolt task show' output.",
@@ -69,19 +74,20 @@ module Proxy::Bolt
       # Get metadata for each task and put into @tasks
       task_names.each do |name|
         command = "bolt task show #{name} --project #{Proxy::Bolt::Plugin.settings.environment_path} --format json"
-        output, status = bolt(command)
+        stdout, stderr, status = bolt(command)
         unless status.exitstatus.zero?
           @tasks = nil
           raise Proxy::Bolt::CliError.new(
             message:  "Error occurred when fetching task information for #{name}",
             exitcode: status.exitstatus,
-            output:   output,
+            stdout:   stdout,
+            stderr:   stderr,
             command:  command,
           )
         end
         metadata = {}
         begin
-          metadata = JSON.parse(output)['metadata']
+          metadata = JSON.parse(stdout)['metadata']
         rescue Json::ParserError => e
           @tasks = nil
           raise Proxy::Bolt::Error.new(
@@ -105,6 +111,7 @@ module Proxy::Bolt
       @tasks = task_data
     end
 
+    # /run/task
     def run_task(data)
       ### Validation ###
       unless data.is_a?(Hash)
@@ -179,45 +186,29 @@ module Proxy::Bolt
       }.to_json
     end
 
+    # /job/:id/status
     def get_status(id)
       return {
-        status: @executor.status(id),
+        status: executor.status(id),
       }.to_json
     end
 
+    # /job/:id/result
     def get_result(id)
-      value = @executor.result(id)
-      status = @executor.status(id)
-      if status == :failure
-        #TODO: Make this less silly
-        if value.is_a?(Proxy::Bolt::Error)
-          value = value.to_json
-        else
-          value = { error: value }.to_json
-        end
-      else
-        value = { result: value }.to_json
-      end
-      value
+      executor.result(id).to_json
     end
 
-    def bolt(command, logfile=nil, resultfile=nil)
-      # The full execution log is printed on stderr, and the result
-      # is printed on stdout
+    # Anything that needs to run a Bolt CLI command should use this.
+    # At the moment, the full output is held in memory and passed back.
+    # If this becomes a problem, we can stream to disk and point to it.
+    #
+    # For task runs, the log goes to stderr and the result to stdout when
+    # --format json is specified. At some point, figure out how to make
+    # Bolt's logger log to a file instead without having to have a special
+    # project config file.
+    def bolt(command)
       env = { 'BOLT_GEM' => 'true', 'BOLT_DISABLE_ANALYTICS' => 'true' }
-      if logfile.nil? && resultfile.nil?
-        Open3.capture2e(env, *command.split)
-      else
-        stdout, stderr, status = Open3.capture3(env, *command.split)
-        if logfile
-          File.open(logfile, 'w') do |f| 
-            f.puts("Command: #{command}")
-            f.write(stderr)
-          end
-        end
-        File.open(resultfile, 'w') { |f| f.write(stdout) } if resultfile
-        [stdout, status]
-      end
+      Open3.capture3(env, *command.split)
     end
   end
 end
