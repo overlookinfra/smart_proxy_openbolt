@@ -33,6 +33,6 @@ module Proxy::Bolt
     validate_readable :environment_path
     validate :log_dir, :log_path_validator => true
 
-    https_rackup_path File.expand_path('bolt_http_config.ru', File.expand_path('../', __FILE__))
+    https_rackup_path File.expand_path('http_config.ru', File.expand_path('../', __FILE__))
   end
 end

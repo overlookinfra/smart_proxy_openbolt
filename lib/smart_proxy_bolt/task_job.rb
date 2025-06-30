@@ -1,15 +1,15 @@
-require 'smart_proxy_bolt/job'
-require 'smart_proxy_bolt/error'
-require 'smart_proxy_bolt/bolt_main'
-require 'smart_proxy_bolt/result'
 require 'json'
+require 'smart_proxy_bolt/error'
+require 'smart_proxy_bolt/job'
+require 'smart_proxy_bolt/main'
+require 'smart_proxy_bolt/result'
 
 module Proxy::Bolt
   class TaskJob < Job
     attr_reader :targets
 
     # NOTE: Validation of all objects initialized here should be done in
-    # bolt_main.rb BEFORE creating this object.
+    # main.rb BEFORE creating this object.
     def initialize(name, parameters, transport, options, targets)
       super(name, parameters, transport, options)
       @targets = targets

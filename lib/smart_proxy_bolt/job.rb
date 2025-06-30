@@ -1,6 +1,6 @@
-require 'thread'
-require 'smart_proxy_bolt/result'
 require 'net/http'
+require 'smart_proxy_bolt/result'
+require 'thread'
 
 module Proxy::Bolt
   class Job

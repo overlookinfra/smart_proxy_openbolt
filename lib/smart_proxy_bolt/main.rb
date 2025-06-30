@@ -1,6 +1,8 @@
+require 'json'
 require 'open3'
 require 'smart_proxy_bolt/executor'
 require 'smart_proxy_bolt/error'
+require 'thread'
 
 module Proxy::Bolt
   extend ::Proxy::Util

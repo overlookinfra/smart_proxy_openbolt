@@ -1,8 +1,8 @@
-require 'sinatra'
-require 'smart_proxy_bolt/bolt'
-require 'smart_proxy_bolt/bolt_main'
-require 'smart_proxy_bolt/error'
 require 'json'
+require 'sinatra'
+require 'smart_proxy_bolt/plugin'
+require 'smart_proxy_bolt/main'
+require 'smart_proxy_bolt/error'
 
 module Proxy::Bolt
 
@@ -24,31 +24,31 @@ module Proxy::Bolt
     Thread.new { Proxy::Bolt.tasks }
 
     get '/tasks' do
-      run { Proxy::Bolt.tasks.to_json }
+      catch_errors { Proxy::Bolt.tasks.to_json }
     end
 
     get '/tasks/reload' do
-      run { Proxy::Bolt.tasks(reload: true).to_json }
+      catch_errors { Proxy::Bolt.tasks(reload: true).to_json }
     end
 
     post '/run/task' do
-      run do
+      catch_errors do
         data = JSON.parse(request.body.read)
         Proxy::Bolt.run_task(data)
       end
     end
 
     get '/job/:id/status' do |id|
-      run { Proxy::Bolt.get_status(id) }
+      catch_errors { Proxy::Bolt.get_status(id) }
     end
 
     get '/job/:id/result' do |id|
-      run { Proxy::Bolt.get_result(id) }
+      catch_errors { Proxy::Bolt.get_result(id) }
     end
 
     private
 
-    def run(&block)
+    def catch_errors(&block)
       begin
         yield
       rescue Proxy::Bolt::Error => e

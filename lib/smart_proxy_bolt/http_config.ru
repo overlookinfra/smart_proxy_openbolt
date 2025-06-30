@@ -1,4 +1,4 @@
-require 'smart_proxy_bolt/bolt_api'
+require 'smart_proxy_bolt/api'
 
 map '/bolt' do
   run Proxy::Bolt::Api

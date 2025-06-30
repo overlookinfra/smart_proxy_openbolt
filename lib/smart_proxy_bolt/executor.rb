@@ -1,8 +1,8 @@
 require 'concurrent'
+require 'securerandom'
 require 'singleton'
 require 'smart_proxy_bolt/job'
 require 'smart_proxy_bolt/task_job'
-require 'securerandom'
 
 module Proxy::Bolt
   class Executor
