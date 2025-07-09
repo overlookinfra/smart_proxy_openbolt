@@ -46,9 +46,6 @@ module Proxy::Bolt
     end
 
     def reload_tasks
-      # DEBUG: Remove this
-      @tasks = JSON.parse(File.read('/tasks'))
-      return
       task_data = {}
 
       # Get a list of all tasks
