@@ -11,24 +11,28 @@ module Proxy::Bolt
   class << self
 
     # Must be :boolean, :string, or an array of acceptable string values
-    VALID_OPTIONS = {
-      'noop'             => :boolean,
-      'user'             => :string,
-      'password'         => :string,
-      'private-key'      => :string,
-      'host-key-check'   => :boolean,
-      'winrm-ssl'        => :boolean,
-      'winrm-ssl-verify' => :boolean,
-      'run-as'           => :string,
-      'sudo-password'    => :string,
-      'inventoryfile'    => :string,
-      'tmpdir'           => :string,
-      'verbose'          => :boolean,
-      'trace'            => :boolean,
-      'log-level'        => ['error', 'warning', 'info', 'debug', 'trace'],
+    BOLT_OPTIONS = {
+      'noop'             => { :type => :boolean, :default => false, },
+      'user'             => { :type => :string },
+      'password'         => { :type => :string },
+      'private-key'      => { :type => :string },
+      'host-key-check'   => { :type => :boolean, :default => false },
+      'winrm-ssl'        => { :type => :boolean, :default => false },
+      'winrm-ssl-verify' => { :type => :boolean, :default => false },
+      'run-as'           => { :type => :string },
+      'sudo-password'    => { :type => :string },
+      'inventoryfile'    => { :type => :string },
+      'tmpdir'           => { :type => :string },
+      'verbose'          => { :type => :boolean, :default => false },
+      'trace'            => { :type => :boolean, :default => false },
+      'log-level'        => { :type => ['error', 'warning', 'info', 'debug', 'trace'], :default => 'info' },
+      'transport'        => { :type => ['ssh', 'winrm'], :default => 'ssh' },
     }
-    VALID_TRANSPORTS = ['ssh', 'winrm']
     @@mutex = Mutex.new
+
+    def bolt_options
+      BOLT_OPTIONS.sort.to_h
+    end
 
     def executor
       @executor ||= Proxy::Bolt::Executor.instance
@@ -147,19 +151,19 @@ module Proxy::Bolt
       raise Proxy::Bolt::Error.new(message: "The 'targets' value should not be empty.") if targets.empty?
 
       # Validate transport
-      raise Proxy::Bolt::Error.new(message: "Invalid transport specified. Must be one of #{VALID_TRANSPORTS}.") unless VALID_TRANSPORTS.include?(transport)
-      
+      raise Proxy::Bolt::Error.new(message: "Invalid transport specified. Must be one of #{BOLT_OPTIONS['transport'][:type]}.") unless BOLT_OPTIONS['transport'][:type].include?(transport)
+
       options ||= {}
       # Validate options
       raise Proxy::Bolt::Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
       # Inject the log-level param if it doesn't exist so we always get something
       # for the log file.
       options['log-level'] ||= 'debug'
-      unknown = options.keys - VALID_OPTIONS.keys
+      unknown = options.keys - BOLT_OPTIONS.keys
       raise Proxy::Bolt::Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
 
       options = options.map do |key, value|
-        type = VALID_OPTIONS[key]
+        type = BOLT_OPTIONS[key][:type]
         value ||= '' # In case it's nil somehow
         case type
         when :boolean
@@ -169,9 +173,9 @@ module Proxy::Bolt
         when :string
           value = value.strip
           raise Proxy::Bolt::Error.new(message: "Option #{key} must have a value when the option is specified.") if value.empty?
-        when is_a?(Array)
+        when Array
           value = value.strip
-          raise Proxy::Bolt::Error.new(message: "Option #{key} must have one of the following values: #{VALID_OPTIONS[key]}") unless VALID_OPTIONS[key].include?(value)
+          raise Proxy::Bolt::Error.new(message: "Option #{key} must have one of the following values: #{BOLT_OPTIONS[key][:type]}") unless BOLT_OPTIONS[key][:type].include?(value)
         end
         [key, value]
       end.to_h

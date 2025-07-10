@@ -31,6 +31,10 @@ module Proxy::Bolt
       catch_errors { Proxy::Bolt.tasks(reload: true).to_json }
     end
 
+    get '/tasks/options' do
+      catch_errors { Proxy::Bolt.bolt_options.to_json}
+    end
+
     post '/run/task' do
       catch_errors do
         data = JSON.parse(request.body.read)
