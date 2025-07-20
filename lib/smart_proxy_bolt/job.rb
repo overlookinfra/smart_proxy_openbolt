@@ -5,7 +5,7 @@ require 'thread'
 module Proxy::Bolt
   class Job
     attr_accessor :id
-    attr_reader :name, :parameters, :transport, :options, :status
+    attr_reader :name, :parameters, :options, :status
 
     # Valid statuses are
     #  :pending - waiting to run
@@ -14,11 +14,10 @@ module Proxy::Bolt
     #  :failure - job finished and had one or more failures
     #  :exception - command exited with an unexpected code
 
-    def initialize(name, parameters, transport, options)
+    def initialize(name, parameters, options)
       @id         = nil
       @name       = name
       @parameters = parameters
-      @transport  = transport
       @options    = options
       @status     = :pending
       @mutex      = Mutex.new
@@ -54,14 +53,14 @@ module Proxy::Bolt
       File.open(results_file, 'w') { |f| f.write(value.to_json) }
 
       # Send to reports API
-      reports = get_reports(value)
+      #reports = get_reports(value)
 
       # TODO: Figure out how to authenticate with the /api/config_reports endpoint
-      reports.each do |report|
-        foreman = Proxy::SETTINGS.foreman_url
+      #reports.each do |report|
+      #  foreman = Proxy::SETTINGS.foreman_url
         # Send it
-        puts foreman
-      end
+      #  puts foreman
+      #end
     end
 
     def log_item(text, level)

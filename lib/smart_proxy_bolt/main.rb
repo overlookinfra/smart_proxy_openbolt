@@ -25,7 +25,7 @@ module Proxy::Bolt
       'tmpdir'           => { :type => :string },
       'verbose'          => { :type => :boolean, :default => false },
       'trace'            => { :type => :boolean, :default => false },
-      'log-level'        => { :type => ['error', 'warning', 'info', 'debug', 'trace'], :default => 'info' },
+      'log-level'        => { :type => ['error', 'warning', 'info', 'debug', 'trace'], :default => 'debug' },
       'transport'        => { :type => ['ssh', 'winrm'], :default => 'ssh' },
     }
     @@mutex = Mutex.new
@@ -114,21 +114,40 @@ module Proxy::Bolt
       @tasks = task_data
     end
 
+    # Normalize options and parameters, since the UI may send unspecified options as empty strings
+    def normalize_values(hash)
+      return {} unless hash.is_a?(Hash)
+      hash.transform_values do |value|
+        if value.is_a?(String)
+          value = value.strip
+          value = nil if value.empty?
+        elsif value.is_a?(Array)
+          value = value.map { |v| v.is_a?(String) ? v.strip : v }
+          value = nil if value.empty?
+        end
+        value
+      end.compact
+    end
+
     # /run/task
     def run_task(data)
       ### Validation ###
       unless data.is_a?(Hash)
         raise Proxy::Bolt::Error.new(message: 'Data passed in to run_task function is not a hash. This is most likely a bug in the smart_proxy_bolt plugin. Please file an issue with the maintainers.').to_json
       end
-      fields = ['name', 'parameters', 'targets', 'transport']
+      fields = ['name', 'parameters', 'targets', 'options']
       unless fields.all? { |k| data.keys.include?(k) }
         raise Proxy::Bolt::Error.new(message: "You must provide values for 'name', 'parameters', 'targets', and 'transport'.")
       end
       name = data['name']
-      params = data['parameters']
+      params = data['parameters'] || {}
       targets = data['targets']
-      transport = data['transport']
       options = data['options']
+
+      logger.info("Task: #{name}")
+      logger.info("Parameters: #{params.inspect}")
+      logger.info("Targets: #{targets.inspect}")
+      logger.info("Options: #{options.inspect}")
 
       # Validate name
       raise Proxy::Bolt::Error.new(message: "You must provide a value for 'name'.") unless name.is_a?(String) && !name.empty?
@@ -145,31 +164,41 @@ module Proxy::Bolt
       extra = params.keys - tasks[name]['parameters'].keys
       raise Proxy::Bolt::Error.new(message: "Unknown parameters: #{extra}") unless extra.empty?
 
+      # Normalize parameters, ensuring blank values are not passed
+      params = normalize_values(params)
+      logger.info("Normalized parameters: #{params.inspect}")
+
       # Validate targets
       raise Proxy::Bolt::Error.new(message: "The 'targets' value should be a string or an array.'") unless targets.is_a?(String) || targets.is_a?(Array)
       targets = targets.split(',').map { |t| t.strip }
       raise Proxy::Bolt::Error.new(message: "The 'targets' value should not be empty.") if targets.empty?
 
-      # Validate transport
-      raise Proxy::Bolt::Error.new(message: "Invalid transport specified. Must be one of #{BOLT_OPTIONS['transport'][:type]}.") unless BOLT_OPTIONS['transport'][:type].include?(transport)
-
       options ||= {}
       # Validate options
       raise Proxy::Bolt::Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
-      # Inject the log-level param if it doesn't exist so we always get something
-      # for the log file.
-      options['log-level'] ||= 'debug'
+      extra = options.keys - BOLT_OPTIONS.keys
+      raise Proxy::Bolt::Error.new(message: "Invalid options specified: #{extra}") unless extra.empty?
       unknown = options.keys - BOLT_OPTIONS.keys
       raise Proxy::Bolt::Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
 
+      # Normalize options, removing blank values
+      options = normalize_values(options)
+      logger.info("Normalized options: #{options.inspect}")
+      BOLT_OPTIONS.each { |key, value| options[key] ||= value[:default] if value.key?(:default) }
+      logger.info("Options with defaults: #{options.inspect}")
+
+      # Validate option types
       options = options.map do |key, value|
         type = BOLT_OPTIONS[key][:type]
-        value ||= '' # In case it's nil somehow
+        value = value.nil? ? '' : value # Just in case
         case type
         when :boolean
-          value = value.downcase
-          raise Proxy::Bolt::Error.new(message: "Option #{key} must be a boolean 'true' or 'false'.") unless ['true', 'false'].include?(value)
-          value = value == 'true'
+          if value.is_a?(String)
+            value = value.downcase.strip
+            raise Proxy::Bolt::Error.new(message: "Option #{key} must be a boolean 'true' or 'false'. Current value: #{value}") unless ['true', 'false'].include?(value)
+            value = value == 'true'
+          end
+          raise Proxy::Bolt::Error.new(message: "Option #{key} must be a boolean true for false. It appears to be #{value.class}.") unless [TrueClass, FalseClass].include?(value.class)
         when :string
           value = value.strip
           raise Proxy::Bolt::Error.new(message: "Option #{key} must have a value when the option is specified.") if value.empty?
@@ -179,9 +208,10 @@ module Proxy::Bolt
         end
         [key, value]
       end.to_h
+      logger.info("Final options: #{options.inspect}")
 
       ### Run the task ###
-      task = TaskJob.new(name, params, transport, options, targets)
+      task = TaskJob.new(name, params, options, targets)
       id = executor.add_job(task)
 
       return {

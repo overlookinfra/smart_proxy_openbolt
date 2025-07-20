@@ -10,8 +10,8 @@ module Proxy::Bolt
 
     # NOTE: Validation of all objects initialized here should be done in
     # main.rb BEFORE creating this object.
-    def initialize(name, parameters, transport, options, targets)
-      super(name, parameters, transport, options)
+    def initialize(name, parameters, options, targets)
+      super(name, parameters, options)
       @targets = targets
     end
 
@@ -25,27 +25,33 @@ module Proxy::Bolt
       # Service config settings (not per-task)
       concurrency = "--concurrency=#{Proxy::Bolt::Plugin.settings.concurrency}"
       connect_timeout = "--connect-timeout=#{Proxy::Bolt::Plugin.settings.connect_timeout}"
-      "bolt task run #{@name} --targets #{@targets.join(',')} --transport #{@transport} --no-save-rerun #{concurrency} #{connect_timeout} --project #{Proxy::Bolt::Plugin.settings.environment_path} --format json --no-color #{parse_options} #{parse_parameters}"
+      "bolt task run #{@name} --targets #{@targets.join(',')} --no-save-rerun #{concurrency} #{connect_timeout} --project #{Proxy::Bolt::Plugin.settings.environment_path} --format json --no-color #{parse_options} #{parse_parameters}"
     end
 
     def parse_parameters
-      params = ''
+      params = []
       @parameters.each do |key, value|
         if value.is_a?(Array)
-          params += "#{key}='#{value}' "
+          params << "#{key}='#{value}'"
         elsif value.is_a?(Hash)
-          params += "#{key}='#{value.to_json}' "
+          params << "#{key}='#{value.to_json}'"
         else
-          "#{key}=#{value}"
+          params << "#{key}=#{value}"
         end
       end
-      params
+      params.join(' ')
     end
 
     def parse_options
       opt_str = ''
       if @options
         @options.each do |key, value|
+          # --noop and --trace don't have --[no-] prefixes
+          next if ['noop','trace'].include?(key) && value.is_a?(FalseClass)
+          # We expose the --ssl and --ssl-verify options as
+          # --winrm-ssl and --winrm-ssl-verify because it's confusing.
+          # So strip them out if they're there.
+          key = key.sub('winrm-','') if key.start_with?('winrm-')
           if value.is_a?(TrueClass)
             opt_str += "--#{key} "
           elsif value.is_a?(FalseClass)
