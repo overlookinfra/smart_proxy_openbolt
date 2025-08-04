@@ -16,9 +16,11 @@ module Proxy::Bolt
   end
 
   class Plugin < ::Proxy::Plugin
-    plugin 'bolt', Proxy::Bolt::VERSION
+    plugin :bolt, Proxy::Bolt::VERSION
 
-    capability :BOLT
+    expose_setting :enabled
+
+    capability :tasks
 
     # TODO: Validate this is a valid path
     default_settings(
