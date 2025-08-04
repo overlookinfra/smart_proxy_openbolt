@@ -78,7 +78,7 @@ module Proxy::Bolt
           # This is only for reading back status and result. Don't try
           # to fill in the other arguments correctly, and don't assume
           # they are there after execution.
-          job = Job.new(nil, nil, nil, nil)
+          job = Job.new(nil, nil, nil)
           job.id = id
           job.update_status(data['status'].to_sym)
           @jobs[id] = job
