@@ -21,7 +21,7 @@ module Proxy::Bolt
       'winrm-ssl-verify' => { :type => :boolean, :default => false },
       'run-as'           => { :type => :string },
       'sudo-password'    => { :type => :string },
-      'inventoryfile'    => { :type => :string },
+      #'inventoryfile'    => { :type => :string },
       'tmpdir'           => { :type => :string },
       'verbose'          => { :type => :boolean, :default => false },
       'trace'            => { :type => :boolean, :default => false },
