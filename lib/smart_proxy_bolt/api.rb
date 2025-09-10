@@ -50,6 +50,30 @@ module Proxy::Bolt
       catch_errors { Proxy::Bolt.get_result(id) }
     end
 
+    delete '/job/:id/artifacts' do |id|
+      catch_errors do
+        # Validate the job ID format to prevent directory traversal
+        unless id =~ /\A[a-f0-9\-]+\z/i
+          raise Proxy::Bolt::Error.new(message: "Invalid job ID format")
+        end
+
+        file_path = File.join(Proxy::Bolt::Plugin.settings.log_dir, "#{id}.json")
+
+        if File.exist?(file_path)
+          real_path = File.realpath(file_path)
+          expected_dir = File.realpath(Proxy::Bolt::Plugin.settings.log_dir)
+          raise Proxy::Bolt::Error.new(message: "Invalid file path") unless real_path.start_with?(expected_dir)
+
+          File.delete(file_path)
+          logger.info("Deleted artifacts for job #{id}")
+          { status: 'deleted', job_id: id, path: file_path }.to_json
+        else
+          logger.warning("Artifacts not found for job #{id}")
+          { status: 'not_found', job_id: id }.to_json
+        end
+      end
+    end
+
     private
 
     def catch_errors(&block)
