@@ -46,13 +46,18 @@ module Proxy::Bolt
       opt_str = ''
       if @options
         @options.each do |key, value|
-          # --noop and --trace don't have --[no-] prefixes
-          next if ['noop','trace'].include?(key) && value.is_a?(FalseClass)
+          # --noop doesn't have a --[no-] prefix
+          next if key == 'noop' && value.is_a?(FalseClass)
           # We expose the --ssl and --ssl-verify options as
           # --winrm-ssl and --winrm-ssl-verify because it's confusing.
           # So strip them out if they're there.
           key = key.sub('winrm-','') if key.start_with?('winrm-')
-          if value.is_a?(TrueClass)
+          # For some mindboggling reason, there are both '--log-level trace'
+          # and '--trace' options. We only expose log level, so just
+          # tack on --trace if that's what we find.
+          if key == 'log-level' && value == 'trace'
+            opt_str += "--log-level=trace --trace "
+          elsif value.is_a?(TrueClass)
             opt_str += "--#{key} "
           elsif value.is_a?(FalseClass)
             opt_str += "--no-#{key} "

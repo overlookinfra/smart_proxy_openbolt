@@ -24,7 +24,6 @@ module Proxy::Bolt
       #'inventoryfile'    => { :type => :string },
       'tmpdir'           => { :type => :string },
       'verbose'          => { :type => :boolean, :default => false },
-      'trace'            => { :type => :boolean, :default => false },
       'log-level'        => { :type => ['error', 'warning', 'info', 'debug', 'trace'], :default => 'debug' },
       'transport'        => { :type => ['ssh', 'winrm'], :default => 'ssh' },
     }
