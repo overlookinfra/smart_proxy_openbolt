@@ -35,10 +35,10 @@ module Proxy::OpenBolt
       catch_errors { Proxy::OpenBolt.openbolt_options.to_json}
     end
 
-    post '/run/task' do
+    post '/launch/task' do
       catch_errors do
         data = JSON.parse(request.body.read)
-        Proxy::OpenBolt.run_task(data)
+        Proxy::OpenBolt.launch_task(data)
       end
     end
 

@@ -173,11 +173,11 @@ module Proxy::OpenBolt
       end.compact
     end
 
-    # /run/task
-    def run_task(data)
+    # /launch/task
+    def launch_task(data)
       ### Validation ###
       unless data.is_a?(Hash)
-        raise Proxy::OpenBolt::Error.new(message: 'Data passed in to run_task function is not a hash. This is most likely a bug in the smart_proxy_openbolt plugin. Please file an issue with the maintainers.').to_json
+        raise Proxy::OpenBolt::Error.new(message: 'Data passed in to launch_task function is not a hash. This is most likely a bug in the smart_proxy_openbolt plugin. Please file an issue with the maintainers.').to_json
       end
       fields = ['name', 'parameters', 'targets', 'options']
       unless fields.all? { |k| data.keys.include?(k) }
