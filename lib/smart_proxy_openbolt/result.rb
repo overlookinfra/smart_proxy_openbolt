@@ -1,11 +1,11 @@
 require 'json'
 
-module Proxy::Bolt
+module Proxy::OpenBolt
   class Result
 
     attr_reader :command, :status, :value, :log, :message, :schema
 
-    # Result from the Bolt CLI with --format json looks like:
+    # Result from the OpenBolt CLI with --format json looks like:
     #
     # { "items": [
     #     {
@@ -25,8 +25,8 @@ module Proxy::Bolt
     # }
 
     # This class will take the raw stdout, stderr, status.exitcode objects from a
-    # Bolt CLI invocation, and parse them accordingly. This should only be
-    # used with the --format json flag passed to the Bolt CLI, as that changes
+    # OpenBolt CLI invocation, and parse them accordingly. This should only be
+    # used with the --format json flag passed to the OpenBolt CLI, as that changes
     # what data gets put on stdout and stderr.
     #
     # The "exception" parameter is to be able to handle an unexpected exception,

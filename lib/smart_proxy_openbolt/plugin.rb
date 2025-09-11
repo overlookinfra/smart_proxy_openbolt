@@ -1,6 +1,6 @@
 require 'fileutils'
 
-module Proxy::Bolt
+module Proxy::OpenBolt
   class NotFound < RuntimeError; end
 
   class LogPathValidator < ::Proxy::PluginValidators::Base
@@ -16,7 +16,7 @@ module Proxy::Bolt
   end
 
   class Plugin < ::Proxy::Plugin
-    plugin :bolt, Proxy::Bolt::VERSION
+    plugin :openbolt, Proxy::OpenBolt::VERSION
 
     expose_setting :enabled
 
@@ -28,10 +28,10 @@ module Proxy::Bolt
       workers: 20,
       concurrency: 100,
       connect_timeout: 30,
-      log_dir: '/var/log/foreman-proxy/bolt'
+      log_dir: '/var/log/foreman-proxy/openbolt'
     )
 
-    load_validators :log_path_validator => Proxy::Bolt::LogPathValidator
+    load_validators :log_path_validator => Proxy::OpenBolt::LogPathValidator
     validate_readable :environment_path
     validate :log_dir, :log_path_validator => true
 

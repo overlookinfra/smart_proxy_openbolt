@@ -1,17 +1,17 @@
 require 'concurrent'
 require 'securerandom'
 require 'singleton'
-require 'smart_proxy_bolt/job'
-require 'smart_proxy_bolt/task_job'
+require 'smart_proxy_openbolt/job'
+require 'smart_proxy_openbolt/task_job'
 
-module Proxy::Bolt
+module Proxy::OpenBolt
   class Executor
     include Singleton
 
     SHUTDOWN_TIMEOUT = 30
 
     def initialize
-      @pool = Concurrent::FixedThreadPool.new(Proxy::Bolt::Plugin.settings.workers.to_i)
+      @pool = Concurrent::FixedThreadPool.new(Proxy::OpenBolt::Plugin.settings.workers.to_i)
       @jobs = Concurrent::Map.new
     end
 
@@ -69,7 +69,7 @@ module Proxy::Bolt
       return @jobs[id] if @jobs.keys.include?(id)
       # Look on disk for a past run that may have happened
       job = nil
-      file = "#{Proxy::Bolt::Plugin.settings.log_dir}/#{id}.json"
+      file = "#{Proxy::OpenBolt::Plugin.settings.log_dir}/#{id}.json"
       if File.exist?(file)
         begin
           data = JSON.parse(File.read(file))

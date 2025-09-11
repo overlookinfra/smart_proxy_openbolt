@@ -1,8 +1,8 @@
 require 'net/http'
-require 'smart_proxy_bolt/result'
+require 'smart_proxy_openbolt/result'
 require 'thread'
 
-module Proxy::Bolt
+module Proxy::OpenBolt
   class Job
     attr_accessor :id
     attr_reader :name, :parameters, :options, :status
@@ -28,7 +28,7 @@ module Proxy::Bolt
     end
 
     # Called by worker. The 'execute' function should return a
-    # Proxy::Bolt::Result object
+    # Proxy::OpenBolt::Result object
     def process
       update_status(:running)
       begin
@@ -49,7 +49,7 @@ module Proxy::Bolt
 
     def store_result(value)
       # On disk
-      results_file = "#{Proxy::Bolt::Plugin.settings.log_dir}/#{@id}.json"
+      results_file = "#{Proxy::OpenBolt::Plugin.settings.log_dir}/#{@id}.json"
       File.open(results_file, 'w') { |f| f.write(value.to_json) }
 
       # Send to reports API
@@ -67,7 +67,7 @@ module Proxy::Bolt
       { 
         'log': {
           'sources': {
-            'source': 'Bolt'
+            'source': 'OpenBolt'
           },
           'messages': {
             'message': text
@@ -84,7 +84,7 @@ module Proxy::Bolt
       return nil if items.nil?
       timestamp = Time.now.utc
 
-      source = { 'sources': { 'source': 'Bolt' } }
+      source = { 'sources': { 'source': 'OpenBolt' } }
       items.map do |item|
         target = item['target']
         status = item['status']
@@ -124,7 +124,7 @@ module Proxy::Bolt
     # of huge results in memory. Once we are database-backed, this is less
     # cumbersome and problematic.
     def result
-      results_file = "#{Proxy::Bolt::Plugin.settings.log_dir}/#{@id}.json"
+      results_file = "#{Proxy::OpenBolt::Plugin.settings.log_dir}/#{@id}.json"
       JSON.parse(File.read(results_file))
     end
   end

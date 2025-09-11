@@ -4,4 +4,4 @@
 :workers: 20
 :concurrency: 100
 :connect_timeout: 30
-:log_dir: /var/log/foreman-proxy/bolt
+:log_dir: /var/log/foreman-proxy/openbolt

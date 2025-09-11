@@ -1,2 +1,4 @@
 **/.DS_Store
-smart_proxy_bolt-*.gem
+smart_proxy_openbolt-*.gem
+# Local testing files
+*.sh

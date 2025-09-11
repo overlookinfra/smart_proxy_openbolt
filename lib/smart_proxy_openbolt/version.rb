@@ -1,5 +1,5 @@
 module Proxy
-  module Bolt
+  module OpenBolt
     VERSION = '0.0.1'
   end
 end

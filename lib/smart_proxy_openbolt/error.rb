@@ -1,4 +1,4 @@
-module Proxy::Bolt
+module Proxy::OpenBolt
   class Error < StandardError
     def initialize(**fields)
       fields.each { |key, val| instance_variable_set("@#{key}", val) }

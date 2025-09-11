@@ -1,40 +1,85 @@
 require 'json'
 require 'open3'
-require 'smart_proxy_bolt/executor'
-require 'smart_proxy_bolt/error'
+require 'smart_proxy_openbolt/executor'
+require 'smart_proxy_openbolt/error'
 require 'thread'
 
-module Proxy::Bolt
+module Proxy::OpenBolt
   extend ::Proxy::Util
   extend ::Proxy::Log
 
   class << self
 
-    # Must be :boolean, :string, or an array of acceptable string values
-    BOLT_OPTIONS = {
-      'noop'             => { :type => :boolean, :default => false, },
-      'user'             => { :type => :string },
-      'password'         => { :type => :string },
-      'private-key'      => { :type => :string },
-      'host-key-check'   => { :type => :boolean, :default => false },
-      'winrm-ssl'        => { :type => :boolean, :default => false },
-      'winrm-ssl-verify' => { :type => :boolean, :default => false },
-      'run-as'           => { :type => :string },
-      'sudo-password'    => { :type => :string },
-      #'inventoryfile'    => { :type => :string },
-      'tmpdir'           => { :type => :string },
-      'verbose'          => { :type => :boolean, :default => false },
-      'log-level'        => { :type => ['error', 'warning', 'info', 'debug', 'trace'], :default => 'debug' },
-      'transport'        => { :type => ['ssh', 'winrm'], :default => 'ssh' },
+    TRANSPORTS = ['ssh', 'winrm']
+    # The key should be exactly the flag name passed to OpenBolt
+    # Type must be :boolean, :string, or an array of acceptable string values
+    # Transport must be an array of transport types it applies to. This is
+    #   used to filter the openbolt options in the UI to only those relevant
+    # Defaults set here are in case the UI does not send any information for
+    #   the key, and should only be present if this value is required
+    OPENBOLT_OPTIONS = {
+      'transport' => {
+        :type => TRANSPORTS,
+        :transport => TRANSPORTS,
+        :default => 'ssh',
+      },
+      'log-level' => {
+        :type => ['error', 'warning', 'info', 'debug', 'trace'],
+        :transport => ['ssh', 'winrm'],
+      },
+      'verbose' => {
+        :type => :boolean,
+        :transport => ['ssh', 'winrm'],
+      },
+      'noop' => {
+        :type => :boolean,
+        :transport => ['ssh', 'winrm'],
+      },
+      'tmpdir' => {
+        :type => :string,
+        :transport => ['ssh', 'winrm'],
+      },
+      'user' => {
+        :type => :string,
+        :transport => ['ssh', 'winrm'],
+      },
+      'password' => {
+        :type => :string,
+        :transport => ['ssh', 'winrm'],
+      },
+      'host-key-check' => {
+        :type => :boolean,
+        :transport => ['ssh'],
+      },
+      'private-key' => {
+        :type => :string,
+        :transport => ['ssh'],
+      },
+      'run-as' => {
+        :type => :string,
+        :transport => ['ssh'],
+      },
+      'sudo-password' => {
+        :type => :string,
+        :transport => ['ssh'],
+      },
+      'ssl' => {
+        :type => :boolean,
+        :transport => ['winrm'],
+      },
+      'ssl-verify' => {
+        :type => :boolean,
+        :transport => ['winrm'],
+      },
     }
     @@mutex = Mutex.new
 
-    def bolt_options
-      BOLT_OPTIONS.sort.to_h
+    def openbolt_options
+      OPENBOLT_OPTIONS.sort.to_h
     end
 
     def executor
-      @executor ||= Proxy::Bolt::Executor.instance
+      @executor ||= Proxy::OpenBolt::Executor.instance
     end
 
     # /tasks or /tasks/reload
@@ -52,10 +97,10 @@ module Proxy::Bolt
       task_data = {}
 
       # Get a list of all tasks
-      command = "bolt task show --project #{Proxy::Bolt::Plugin.settings.environment_path} --format json"
-      stdout, stderr, status = bolt(command)
+      command = "bolt task show --project #{Proxy::OpenBolt::Plugin.settings.environment_path} --format json"
+      stdout, stderr, status = openbolt(command)
       unless status.exitstatus.zero?
-        raise Proxy::Bolt::CliError.new(
+        raise Proxy::OpenBolt::CliError.new(
           message:  'Error occurred when fetching tasks names.',
           exitcode: status.exitstatus,
           stdout:   stdout,
@@ -67,7 +112,7 @@ module Proxy::Bolt
       begin
         task_names = JSON.parse(stdout)['tasks'].map { |t| t[0] }
       rescue JSON::ParserError => e
-        raise Proxy::Bolt::Error.new(
+        raise Proxy::OpenBolt::Error.new(
           message:   "Error occurred when parsing 'bolt task show' output.",
           exception: e,
         )
@@ -75,11 +120,11 @@ module Proxy::Bolt
 
       # Get metadata for each task and put into @tasks
       task_names.each do |name|
-        command = "bolt task show #{name} --project #{Proxy::Bolt::Plugin.settings.environment_path} --format json"
-        stdout, stderr, status = bolt(command)
+        command = "bolt task show #{name} --project #{Proxy::OpenBolt::Plugin.settings.environment_path} --format json"
+        stdout, stderr, status = openbolt(command)
         unless status.exitstatus.zero?
           @tasks = nil
-          raise Proxy::Bolt::CliError.new(
+          raise Proxy::OpenBolt::CliError.new(
             message:  "Error occurred when fetching task information for #{name}",
             exitcode: status.exitstatus,
             stdout:   stdout,
@@ -92,14 +137,14 @@ module Proxy::Bolt
           metadata = JSON.parse(stdout)['metadata']
         rescue Json::ParserError => e
           @tasks = nil
-          raise Proxy::Bolt::Error.new(
+          raise Proxy::OpenBolt::Error.new(
             message:   "Error occurred when parsing 'bolt task show #{name}' output.",
             exception: e,
           )
         end
         if metadata.nil?
           @tasks = nil
-          raise Proxy::Bolt::Error.new(
+          raise Proxy::OpenBolt::Error.new(
             message: "Invalid metadata found for task #{name}",
             output: output,
             command: command,
@@ -132,11 +177,11 @@ module Proxy::Bolt
     def run_task(data)
       ### Validation ###
       unless data.is_a?(Hash)
-        raise Proxy::Bolt::Error.new(message: 'Data passed in to run_task function is not a hash. This is most likely a bug in the smart_proxy_bolt plugin. Please file an issue with the maintainers.').to_json
+        raise Proxy::OpenBolt::Error.new(message: 'Data passed in to run_task function is not a hash. This is most likely a bug in the smart_proxy_openbolt plugin. Please file an issue with the maintainers.').to_json
       end
       fields = ['name', 'parameters', 'targets', 'options']
       unless fields.all? { |k| data.keys.include?(k) }
-        raise Proxy::Bolt::Error.new(message: "You must provide values for 'name', 'parameters', 'targets', and 'transport'.")
+        raise Proxy::OpenBolt::Error.new(message: "You must provide values for 'name', 'parameters', 'targets', and 'transport'.")
       end
       name = data['name']
       params = data['parameters'] || {}
@@ -149,61 +194,61 @@ module Proxy::Bolt
       logger.info("Options: #{options.inspect}")
 
       # Validate name
-      raise Proxy::Bolt::Error.new(message: "You must provide a value for 'name'.") unless name.is_a?(String) && !name.empty?
-      raise Proxy::Bolt::Error.new(message: "Task #{name} not found.") unless tasks.keys.include?(name)
-      
+      raise Proxy::OpenBolt::Error.new(message: "You must provide a value for 'name'.") unless name.is_a?(String) && !name.empty?
+      raise Proxy::OpenBolt::Error.new(message: "Task #{name} not found.") unless tasks.keys.include?(name)
+
       # Validate parameters
-      raise Proxy::Bolt::Error.new(message: "The 'parameters' value should be a hash.") unless params.is_a?(Hash)
+      raise Proxy::OpenBolt::Error.new(message: "The 'parameters' value should be a hash.") unless params.is_a?(Hash)
       missing = []
       tasks[name]['parameters'].each do |k, v|
         next if v['type'].start_with?('Optional[')
         missing << k unless params.keys.include?(k)
       end
-      raise Proxy::Bolt::Error.new(message: "Missing required parameters: #{missing}") unless missing.empty?
+      raise Proxy::OpenBolt::Error.new(message: "Missing required parameters: #{missing}") unless missing.empty?
       extra = params.keys - tasks[name]['parameters'].keys
-      raise Proxy::Bolt::Error.new(message: "Unknown parameters: #{extra}") unless extra.empty?
+      raise Proxy::OpenBolt::Error.new(message: "Unknown parameters: #{extra}") unless extra.empty?
 
       # Normalize parameters, ensuring blank values are not passed
       params = normalize_values(params)
       logger.info("Normalized parameters: #{params.inspect}")
 
       # Validate targets
-      raise Proxy::Bolt::Error.new(message: "The 'targets' value should be a string or an array.'") unless targets.is_a?(String) || targets.is_a?(Array)
+      raise Proxy::OpenBolt::Error.new(message: "The 'targets' value should be a string or an array.'") unless targets.is_a?(String) || targets.is_a?(Array)
       targets = targets.split(',').map { |t| t.strip }
-      raise Proxy::Bolt::Error.new(message: "The 'targets' value should not be empty.") if targets.empty?
+      raise Proxy::OpenBolt::Error.new(message: "The 'targets' value should not be empty.") if targets.empty?
 
       options ||= {}
       # Validate options
-      raise Proxy::Bolt::Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
-      extra = options.keys - BOLT_OPTIONS.keys
-      raise Proxy::Bolt::Error.new(message: "Invalid options specified: #{extra}") unless extra.empty?
-      unknown = options.keys - BOLT_OPTIONS.keys
-      raise Proxy::Bolt::Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
+      raise Proxy::OpenBolt::Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
+      extra = options.keys - OPENBOLT_OPTIONS.keys
+      raise Proxy::OpenBolt::Error.new(message: "Invalid options specified: #{extra}") unless extra.empty?
+      unknown = options.keys - OPENBOLT_OPTIONS.keys
+      raise Proxy::OpenBolt::Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
 
       # Normalize options, removing blank values
       options = normalize_values(options)
       logger.info("Normalized options: #{options.inspect}")
-      BOLT_OPTIONS.each { |key, value| options[key] ||= value[:default] if value.key?(:default) }
+      OPENBOLT_OPTIONS.each { |key, value| options[key] ||= value[:default] if value.key?(:default) }
       logger.info("Options with defaults: #{options.inspect}")
 
       # Validate option types
       options = options.map do |key, value|
-        type = BOLT_OPTIONS[key][:type]
+        type = OPENBOLT_OPTIONS[key][:type]
         value = value.nil? ? '' : value # Just in case
         case type
         when :boolean
           if value.is_a?(String)
             value = value.downcase.strip
-            raise Proxy::Bolt::Error.new(message: "Option #{key} must be a boolean 'true' or 'false'. Current value: #{value}") unless ['true', 'false'].include?(value)
+            raise Proxy::OpenBolt::Error.new(message: "Option #{key} must be a boolean 'true' or 'false'. Current value: #{value}") unless ['true', 'false'].include?(value)
             value = value == 'true'
           end
-          raise Proxy::Bolt::Error.new(message: "Option #{key} must be a boolean true for false. It appears to be #{value.class}.") unless [TrueClass, FalseClass].include?(value.class)
+          raise Proxy::OpenBolt::Error.new(message: "Option #{key} must be a boolean true for false. It appears to be #{value.class}.") unless [TrueClass, FalseClass].include?(value.class)
         when :string
           value = value.strip
-          raise Proxy::Bolt::Error.new(message: "Option #{key} must have a value when the option is specified.") if value.empty?
+          raise Proxy::OpenBolt::Error.new(message: "Option #{key} must have a value when the option is specified.") if value.empty?
         when Array
           value = value.strip
-          raise Proxy::Bolt::Error.new(message: "Option #{key} must have one of the following values: #{BOLT_OPTIONS[key][:type]}") unless BOLT_OPTIONS[key][:type].include?(value)
+          raise Proxy::OpenBolt::Error.new(message: "Option #{key} must have one of the following values: #{OPENBOLT_OPTIONS[key][:type]}") unless OPENBOLT_OPTIONS[key][:type].include?(value)
         end
         [key, value]
       end.to_h
@@ -230,15 +275,15 @@ module Proxy::Bolt
       executor.result(id).to_json
     end
 
-    # Anything that needs to run a Bolt CLI command should use this.
+    # Anything that needs to run an OpenBolt CLI command should use this.
     # At the moment, the full output is held in memory and passed back.
     # If this becomes a problem, we can stream to disk and point to it.
     #
     # For task runs, the log goes to stderr and the result to stdout when
     # --format json is specified. At some point, figure out how to make
-    # Bolt's logger log to a file instead without having to have a special
+    # OpenBolt's logger log to a file instead without having to have a special
     # project config file.
-    def bolt(command)
+    def openbolt(command)
       env = { 'BOLT_GEM' => 'true', 'BOLT_DISABLE_ANALYTICS' => 'true' }
       Open3.capture3(env, *command.split)
     end
