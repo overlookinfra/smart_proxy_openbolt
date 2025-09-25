@@ -18,7 +18,12 @@ module Proxy::OpenBolt
     def execute
       command = get_cmd
       stdout, stderr, status = Proxy::OpenBolt.openbolt(command)
-      Proxy::OpenBolt::Result.new(command, stdout, stderr, status.exitstatus)
+      Proxy::OpenBolt::Result.new(
+        Proxy::OpenBolt.scrub(@options, command),
+        Proxy::OpenBolt.scrub(@options, stdout),
+        Proxy::OpenBolt.scrub(@options, stderr),
+        status.exitstatus
+      )
     end
 
     def get_cmd

@@ -8,70 +8,83 @@ module Proxy::OpenBolt
   extend ::Proxy::Util
   extend ::Proxy::Log
 
+  TRANSPORTS = ['ssh', 'winrm']
+  # The key should be exactly the flag name passed to OpenBolt
+  # Type must be :boolean, :string, or an array of acceptable string values
+  # Transport must be an array of transport types it applies to. This is
+  #   used to filter the openbolt options in the UI to only those relevant
+  # Defaults set here are in case the UI does not send any information for
+  #   the key, and should only be present if this value is required
+  # Sensitive should be set to true in order to redact the value from logs
+  OPENBOLT_OPTIONS = {
+    'transport' => {
+      :type => TRANSPORTS,
+      :transport => TRANSPORTS,
+      :default => 'ssh',
+      :sensitive => false,
+    },
+    'log-level' => {
+      :type => ['error', 'warning', 'info', 'debug', 'trace'],
+      :transport => ['ssh', 'winrm'],
+      :sensitive => false,
+    },
+    'verbose' => {
+      :type => :boolean,
+      :transport => ['ssh', 'winrm'],
+      :sensitive => false,
+    },
+    'noop' => {
+      :type => :boolean,
+      :transport => ['ssh', 'winrm'],
+      :sensitive => false,
+    },
+    'tmpdir' => {
+      :type => :string,
+      :transport => ['ssh', 'winrm'],
+      :sensitive => false,
+    },
+    'user' => {
+      :type => :string,
+      :transport => ['ssh', 'winrm'],
+      :sensitive => false,
+    },
+    'password' => {
+      :type => :string,
+      :transport => ['ssh', 'winrm'],
+      :sensitive => true,
+    },
+    'host-key-check' => {
+      :type => :boolean,
+      :transport => ['ssh'],
+      :sensitive => false,
+    },
+    'private-key' => {
+      :type => :string,
+      :transport => ['ssh'],
+      :sensitive => false,
+    },
+    'run-as' => {
+      :type => :string,
+      :transport => ['ssh'],
+      :sensitive => false,
+    },
+    'sudo-password' => {
+      :type => :string,
+      :transport => ['ssh'],
+      :sensitive => true,
+    },
+    'ssl' => {
+      :type => :boolean,
+      :transport => ['winrm'],
+      :sensitive => false,
+    },
+    'ssl-verify' => {
+      :type => :boolean,
+      :transport => ['winrm'],
+      :sensitive => false,
+    },
+  }
   class << self
-
-    TRANSPORTS = ['ssh', 'winrm']
-    # The key should be exactly the flag name passed to OpenBolt
-    # Type must be :boolean, :string, or an array of acceptable string values
-    # Transport must be an array of transport types it applies to. This is
-    #   used to filter the openbolt options in the UI to only those relevant
-    # Defaults set here are in case the UI does not send any information for
-    #   the key, and should only be present if this value is required
-    OPENBOLT_OPTIONS = {
-      'transport' => {
-        :type => TRANSPORTS,
-        :transport => TRANSPORTS,
-        :default => 'ssh',
-      },
-      'log-level' => {
-        :type => ['error', 'warning', 'info', 'debug', 'trace'],
-        :transport => ['ssh', 'winrm'],
-      },
-      'verbose' => {
-        :type => :boolean,
-        :transport => ['ssh', 'winrm'],
-      },
-      'noop' => {
-        :type => :boolean,
-        :transport => ['ssh', 'winrm'],
-      },
-      'tmpdir' => {
-        :type => :string,
-        :transport => ['ssh', 'winrm'],
-      },
-      'user' => {
-        :type => :string,
-        :transport => ['ssh', 'winrm'],
-      },
-      'password' => {
-        :type => :string,
-        :transport => ['ssh', 'winrm'],
-      },
-      'host-key-check' => {
-        :type => :boolean,
-        :transport => ['ssh'],
-      },
-      'private-key' => {
-        :type => :string,
-        :transport => ['ssh'],
-      },
-      'run-as' => {
-        :type => :string,
-        :transport => ['ssh'],
-      },
-      'sudo-password' => {
-        :type => :string,
-        :transport => ['ssh'],
-      },
-      'ssl' => {
-        :type => :boolean,
-        :transport => ['winrm'],
-      },
-      'ssl-verify' => {
-        :type => :boolean,
-        :transport => ['winrm'],
-      },
-    }
     @@mutex = Mutex.new
 
     def openbolt_options
@@ -191,7 +204,7 @@ module Proxy::OpenBolt
       logger.info("Task: #{name}")
       logger.info("Parameters: #{params.inspect}")
       logger.info("Targets: #{targets.inspect}")
-      logger.info("Options: #{options.inspect}")
+      logger.info("Options: #{scrub(options, options.inspect.to_s)}")
 
       # Validate name
       raise Proxy::OpenBolt::Error.new(message: "You must provide a value for 'name'.") unless name.is_a?(String) && !name.empty?
@@ -227,9 +240,9 @@ module Proxy::OpenBolt
 
       # Normalize options, removing blank values
       options = normalize_values(options)
-      logger.info("Normalized options: #{options.inspect}")
+      logger.info("Normalized options: #{scrub(options, options.inspect.to_s)}")
       OPENBOLT_OPTIONS.each { |key, value| options[key] ||= value[:default] if value.key?(:default) }
-      logger.info("Options with defaults: #{options.inspect}")
+      logger.info("Options with required defaults: #{scrub(options, options.inspect.to_s)}")
 
       # Validate option types
       options = options.map do |key, value|
@@ -252,7 +265,7 @@ module Proxy::OpenBolt
         end
         [key, value]
       end.to_h
-      logger.info("Final options: #{options.inspect}")
+      logger.info("Final options: #{scrub(options, options.inspect.to_s)}")
 
       ### Run the task ###
       task = TaskJob.new(name, params, options, targets)
@@ -286,6 +299,15 @@ module Proxy::OpenBolt
     def openbolt(command)
       env = { 'BOLT_GEM' => 'true', 'BOLT_DISABLE_ANALYTICS' => 'true' }
       Open3.capture3(env, *command.split)
+    end
+
+    # Probably needs to go in a utils class somewhere
+    # Used only for display text that may contain sensitive OpenBolt
+    # options values. Should to be used to pass anything to the CLI.
+    def scrub(options, text)
+      sensitive = options.select { |key, _| OPENBOLT_OPTIONS[key] && OPENBOLT_OPTIONS[key][:sensitive] }
+      sensitive.each { |_, value| text = text.gsub(value, '*****') }
+      text
     end
   end
 end
