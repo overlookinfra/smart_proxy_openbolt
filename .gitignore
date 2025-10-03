@@ -1,4 +1,5 @@
 **/.DS_Store
-smart_proxy_openbolt-*.gem
+*.gem
 # Local testing files
+*.rpm
 *.sh
