@@ -64,7 +64,7 @@ module Proxy::OpenBolt
       :type => :boolean,
       :transport => ['ssh'],
       :sensitive => false,
-      :description => 'Whether to perform host key verification when connecting to targets over SSH.',
+      :description => 'When enabled, perform host key verification when connecting to targets over SSH.',
     },
     'private-key' => {
       :type => :string,
