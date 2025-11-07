@@ -4,7 +4,7 @@ source 'https://rubygems.org'
 gemspec
 
 group :rubocop do
-  gem 'rubocop', '~> 1.28.0'
+  gem 'rubocop', '~> 1.81.7'
   gem 'rubocop-performance'
   gem 'rubocop-rake'
 end
