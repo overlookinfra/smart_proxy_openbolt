@@ -11,7 +11,7 @@ end
 
 group :test do
   gem 'ci_reporter_test_unit'
-  gem 'mocha', '~> 1'
+  gem 'mocha', '~> 2'
   gem 'rack-test'
   gem 'rake', '~> 13'
   gem 'smart_proxy', github: 'theforeman/smart-proxy', branch: ENV.fetch('SMART_PROXY_BRANCH', 'develop')
