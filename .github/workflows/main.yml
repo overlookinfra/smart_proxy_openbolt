@@ -18,3 +18,11 @@ jobs:
   test:
     name: Ruby
     uses: theforeman/actions/.github/workflows/smart_proxy_plugin.yml@v0
+
+  tests:
+    needs:
+      - test
+    runs-on: ubuntu-latest
+    name: Test suite
+    steps:
+      - run: echo Test suite completed
