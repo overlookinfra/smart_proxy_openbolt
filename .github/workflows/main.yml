@@ -1,0 +1,20 @@
+---
+name: CI
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.ref_name }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Ruby
+    uses: theforeman/actions/.github/workflows/smart_proxy_plugin.yml@v0
