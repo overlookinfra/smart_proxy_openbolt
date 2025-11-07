@@ -14,5 +14,7 @@ Gem::Specification.new do |s|
   s.license = 'GPL-3.0-only'
   s.required_ruby_version = Gem::Requirement.new('>= 3.0')
 
-  s.add_dependency 'concurrent-ruby', '~> 1.3', '>= 1.3.5'
+  # we need to allow 1.1.10
+  # dynflow depends on it https://rubygems.org/gems/dynflow/versions/1.9.3
+  s.add_dependency 'concurrent-ruby', '>= 1.1.10', '< 2'
 end
