@@ -3,3 +3,7 @@
 # Local testing files
 *.rpm
 *.sh
+/vendor
+/.vendor
+/Gemfile.lock
+/.bundle
