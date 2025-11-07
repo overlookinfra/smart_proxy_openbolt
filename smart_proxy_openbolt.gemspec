@@ -13,4 +13,6 @@ Gem::Specification.new do |s|
   s.homepage = 'http://github.com/overlookinfra/smart_proxy_openbolt'
   s.license = 'GPL-3.0-only'
   s.required_ruby_version = Gem::Requirement.new('>= 2.7')
+
+  s.add_dependency 'concurrent-ruby', '~> 1.3', '>= 1.3.5'
 end
