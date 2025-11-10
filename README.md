@@ -1,5 +1,11 @@
 # Smart Proxy - OpenBolt
 
+[![License](https://img.shields.io/github/license/overlookinfra/smart_proxy_openbolt.svg)](https://github.com/overlookinfra/smart_proxy_openbolt/blob/master/LICENSE)
+[![Test](https://github.com/overlookinfra/smart_proxy_openbolt/actions/workflows/main.yml/badge.svg)](https://github.com/overlookinfra/smart_proxy_openbolt/actions/workflows/main.yml)
+[![Release](https://github.com/overlookinfra/smart_proxy_openbolt/actions/workflows/release.yml/badge.svg)](https://github.com/overlookinfra/smart_proxy_openbolt/actions/workflows/release.yml)
+[![RubyGem Version](https://img.shields.io/gem/v/smart_proxy_openbolt.svg)](https://rubygems.org/gems/smart_proxy_openbolt)
+[![RubyGem Downloads](https://img.shields.io/gem/dt/smart_proxy_openbolt.svg)](https://rubygems.org/gems/smart_proxy_openbolt)
+
 This plug-in adds support for OpenBolt to Foreman's Smart Proxy.
 
 # Things to be aware of
