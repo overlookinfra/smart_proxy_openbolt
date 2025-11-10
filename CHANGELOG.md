@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0](https://github.com/overlookinfra/smart_proxy_openbolt/tree/0.1.0) (2025-11-10)
+
+[Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/0.0.1...0.1.0)
+
+**Fixed bugs:**
+
+- concurrent-ruby: Allow 1.1.10 [\#14](https://github.com/overlookinfra/smart_proxy_openbolt/pull/14) ([bastelfreak](https://github.com/bastelfreak))
+
+**Merged pull requests:**
+
+- README.md: Add badges [\#15](https://github.com/overlookinfra/smart_proxy_openbolt/pull/15) ([bastelfreak](https://github.com/bastelfreak))
+
 ## [0.0.1](https://github.com/overlookinfra/smart_proxy_openbolt/tree/0.0.1) (2025-11-07)
 
 [Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/2c4ac52f1c66f6c84d0356f7ec850790cfff6c6e...0.0.1)
