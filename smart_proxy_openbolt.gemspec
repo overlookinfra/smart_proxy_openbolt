@@ -14,7 +14,10 @@ Gem::Specification.new do |s|
   s.license = 'GPL-3.0-only'
   s.required_ruby_version = Gem::Requirement.new('>= 3.0')
 
-  # we need to allow 1.1.10
+  # we need to allow 1.1.6
   # dynflow depends on it https://rubygems.org/gems/dynflow/versions/1.9.3
-  s.add_dependency 'concurrent-ruby', '>= 1.1.10', '< 2'
+  # On EL, foreman packages a modern concurrent-ruby package
+  # on Debian/Ubuntu, they rely on the upstream packages, and debian.org packages 1.1.6 on bookworm, that's the oldest supported distro/version right now
+  # https://packages.debian.org/bookworm/ruby-concurrent
+  s.add_dependency 'concurrent-ruby', '>= 1.1.6', '< 2'
 end
