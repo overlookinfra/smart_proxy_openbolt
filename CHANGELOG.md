@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/overlookinfra/smart_proxy_openbolt/tree/0.1.1) (2025-11-25)
+
+[Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/0.1.0...0.1.1)
+
+**Fixed bugs:**
+
+- concurrent-ruby: Require 1.1.6 or newer [\#18](https://github.com/overlookinfra/smart_proxy_openbolt/pull/18) ([bastelfreak](https://github.com/bastelfreak))
+
 ## [0.1.0](https://github.com/overlookinfra/smart_proxy_openbolt/tree/0.1.0) (2025-11-10)
 
 [Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/0.0.1...0.1.0)
