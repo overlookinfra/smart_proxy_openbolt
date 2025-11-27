@@ -1,3 +1,4 @@
+# OpenBolt Smart Proxy
 ---
 :enabled: https
 :environment_path: /etc/puppetlabs/code/environments/production
