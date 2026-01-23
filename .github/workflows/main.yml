@@ -17,11 +17,10 @@ concurrency:
 jobs:
   test:
     name: Ruby
-    uses: theforeman/actions/.github/workflows/smart_proxy_plugin.yml@v1
+    uses: bastelfreak/actions/.github/workflows/smart_proxy_plugin.yml@debug
     with:
       foreman_proxy_version: 'refs/pull/932/head'
-    env:
-      GIT_TRACE: 1
+      git_trace: 1
 
   tests:
     needs:
