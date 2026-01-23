@@ -18,6 +18,8 @@ jobs:
   test:
     name: Ruby
     uses: theforeman/actions/.github/workflows/smart_proxy_plugin.yml@v1
+    with:
+      foreman_proxy_version: 'refs/pull/932/head'
 
   tests:
     needs:
