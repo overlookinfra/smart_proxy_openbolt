@@ -19,7 +19,7 @@ jobs:
     name: Ruby
     uses: bastelfreak/actions/.github/workflows/smart_proxy_plugin.yml@debug
     with:
-      foreman_proxy_version: 'refs/pull/932/head'
+      foreman_proxy_version: 'refs/pull/928/head'
       git_trace: '1'
 
   tests:
