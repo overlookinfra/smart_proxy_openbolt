@@ -17,7 +17,7 @@ concurrency:
 jobs:
   test:
     name: Ruby
-    uses: theforeman/actions/.github/workflows/smart_proxy_plugin.yml@v0
+    uses: theforeman/actions/.github/workflows/smart_proxy_plugin.yml@v1
 
   tests:
     needs:
