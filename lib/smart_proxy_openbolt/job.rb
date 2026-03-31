@@ -1,9 +1,9 @@
-require 'net/http'
 require 'smart_proxy_openbolt/result'
-require 'thread'
 
 module Proxy::OpenBolt
   class Job
+    include ::Proxy::Log
+
     attr_accessor :id
     attr_reader :name, :parameters, :options, :status
 
@@ -35,11 +35,18 @@ module Proxy::OpenBolt
         result = execute
         update_status(result.status)
         store_result(result)
-      rescue => e
+      rescue => execute_error
         # This should never happen, but just in case we made a coding error,
         # expose something in the result.
         update_status(:exception)
-        store_result({message: e.full_message, backtrace: e.backtrace})
+        logger.error("Job #{@id} failed (#{execute_error.class}): #{execute_error.message}")
+        logger.debug(execute_error.backtrace.join("\n")) if execute_error.backtrace
+        begin
+          store_result({message: execute_error.full_message, backtrace: execute_error.backtrace})
+        rescue => store_error
+          logger.error("Job #{@id}: failed to store error result: #{store_error.message}")
+          logger.debug(store_error.backtrace.join("\n")) if store_error.backtrace
+        end
       end
     end
 
@@ -48,84 +55,13 @@ module Proxy::OpenBolt
     end
 
     def store_result(value)
-      # On disk
-      results_file = "#{Proxy::OpenBolt::Plugin.settings.log_dir}/#{@id}.json"
-      File.open(results_file, 'w') { |f| f.write(value.to_json) }
-
-      # Send to reports API
-      #reports = get_reports(value)
-
-      # TODO: Figure out how to authenticate with the /api/config_reports endpoint
-      #reports.each do |report|
-      #  foreman = Proxy::SETTINGS.foreman_url
-        # Send it
-      #  puts foreman
-      #end
+      File.open(Proxy::OpenBolt.result_file_path(@id), 'w') { |f| f.write(value.to_json) }
     end
 
-    def log_item(text, level)
-      { 
-        'log': {
-          'sources': {
-            'source': 'OpenBolt'
-          },
-          'messages': {
-            'message': text
-          },
-          'level': level
-        }
-      }
-    end
-
-    def get_reports(value)
-      command = value.command
-      log = value.log
-      items = value.value['items']
-      return nil if items.nil?
-      timestamp = Time.now.utc
-
-      source = { 'sources': { 'source': 'OpenBolt' } }
-      items.map do |item|
-        target = item['target']
-        status = item['status']
-        data = item['value']
-        message = item['message']
-        logs = [log_item("Command: #{command}", 'info')]
-        if data['_error']
-          kind = data.dig('_error','kind')
-          msg = data.dig('_error', 'msg')
-          issue_code = data.dig('_error', 'issue_code')
-          logs << log_item("Error kind: #{kind}", 'error')
-          logs << log_item("Error mesage: #{msg}", 'error')
-          logs << log_item("Error issue code: #{issue_code}", 'error')
-        end
-        logs << log_item("Result: #{data}", 'info')
-        logs << log_item("Task run log: #{log}", 'info') if log
-        logs << log_item("Message: #{message}", 'info') if message
-        {
-          'config_report': {
-            'host': target,
-            'reported_at': timestamp,
-            'status': {
-              "applied": status == 'success' ? 1 : 0,
-              "failed": status == 'failure' ? 1 : 0,
-            },
-            'logs': logs
-          }
-        }
-      end
-      items
-    end
-        
-        
-
-
-    # At the moment, always read back from the file so we don't store a bunch
-    # of huge results in memory. Once we are database-backed, this is less
-    # cumbersome and problematic.
+    # Read the result back from disk as a raw JSON string. We avoid parsing
+    # and re-serializing since the file is already valid JSON.
     def result
-      results_file = "#{Proxy::OpenBolt::Plugin.settings.log_dir}/#{@id}.json"
-      JSON.parse(File.read(results_file))
+      File.read(Proxy::OpenBolt.result_file_path(@id))
     end
   end
 end

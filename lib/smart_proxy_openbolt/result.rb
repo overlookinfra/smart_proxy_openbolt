@@ -60,12 +60,12 @@ module Proxy::OpenBolt
 
     def to_json
       {
-        'command': @command,
-        'status': @status,
-        'value': @value,
-        'log': @log,
-        'message': @message,
-        'schema': @schema,
+        'command' => @command,
+        'status'  => @status,
+        'value'   => @value,
+        'log'     => @log,
+        'message' => @message,
+        'schema'  => @schema,
       }.to_json
     end
   end

@@ -1,24 +1,22 @@
 require 'fileutils'
 
 module Proxy::OpenBolt
-  class NotFound < RuntimeError; end
-
   class LogPathValidator < ::Proxy::PluginValidators::Base
     def validate!(settings)
       logdir = settings[:log_dir]
       unless Dir.exist?(logdir)
         FileUtils.mkdir_p(logdir)
-        FileUtils.chown('foreman-proxy','foreman-proxy',logdir)
+        if Process.uid == 0
+          FileUtils.chown('foreman-proxy', 'foreman-proxy', logdir)
+        end
         FileUtils.chmod(0750, logdir)
       end
-      raise ::Proxy::Error::ConfigurationError("Could not create log dir at #{logdir}") unless Dir.exist?(logdir)
+      raise ::Proxy::Error::ConfigurationError, "Could not create log dir at #{logdir}" unless Dir.exist?(logdir)
     end
   end
 
   class Plugin < ::Proxy::Plugin
-    plugin :openbolt, Proxy::OpenBolt::VERSION
-
-    expose_setting :enabled
+    plugin :openbolt, VERSION
 
     capability :tasks
 
@@ -31,7 +29,7 @@ module Proxy::OpenBolt
       log_dir: '/var/log/foreman-proxy/openbolt'
     )
 
-    load_validators :log_path_validator => Proxy::OpenBolt::LogPathValidator
+    load_validators :log_path_validator => LogPathValidator
     validate_readable :environment_path
     validate :log_dir, :log_path_validator => true
 
