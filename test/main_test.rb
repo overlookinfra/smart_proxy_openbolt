@@ -2,7 +2,7 @@ require 'test_helper'
 require 'smart_proxy_openbolt/plugin'
 require 'smart_proxy_openbolt/main'
 
-class NormalizeValuesTest < Test::Unit::TestCase
+class NormalizeValuesTest < SmartProxyOpenboltTestCase
   def test_strips_string_values
     assert_equal({ 'key' => 'val' }, Proxy::OpenBolt.normalize_values({ 'key' => ' val ' }))
   end
@@ -42,7 +42,7 @@ class NormalizeValuesTest < Test::Unit::TestCase
   end
 end
 
-class ScrubTest < Test::Unit::TestCase
+class ScrubTest < SmartProxyOpenboltTestCase
   def test_redacts_sensitive_values
     options = { 'password' => 'secret123', 'user' => 'admin' }
     text = 'connecting with password=secret123 user=admin'
@@ -92,7 +92,7 @@ class ScrubTest < Test::Unit::TestCase
   end
 end
 
-class OpenboltOptionsTest < Test::Unit::TestCase
+class OpenboltOptionsTest < SmartProxyOpenboltTestCase
   def test_returns_sorted_hash
     options = Proxy::OpenBolt.openbolt_options
     keys = options.keys
@@ -108,7 +108,7 @@ class OpenboltOptionsTest < Test::Unit::TestCase
   end
 end
 
-class ValidateJobIdTest < Test::Unit::TestCase
+class ValidateJobIdTest < SmartProxyOpenboltTestCase
   def test_accepts_standard_uuid
     assert_nothing_raised { Proxy::OpenBolt.validate_job_id!('aabbccdd-1122-3344-5566-778899aabbcc') }
   end

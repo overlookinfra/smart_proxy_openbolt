@@ -1,7 +1,7 @@
 require 'test_helper'
 require 'smart_proxy_openbolt/error'
 
-class ErrorTest < Test::Unit::TestCase
+class ErrorTest < SmartProxyOpenboltTestCase
   def test_message_accessible
     error = Proxy::OpenBolt::Error.new(message: 'something broke')
     assert_equal 'something broke', error.message
@@ -54,7 +54,7 @@ class ErrorTest < Test::Unit::TestCase
   end
 end
 
-class CliErrorTest < Test::Unit::TestCase
+class CliErrorTest < SmartProxyOpenboltTestCase
   def test_inherits_from_error
     error = Proxy::OpenBolt::CliError.new(
       message: 'failed', exitcode: 1, stdout: 'out', stderr: 'err', command: 'bolt task show'

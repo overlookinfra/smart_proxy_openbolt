@@ -1,7 +1,7 @@
 require 'test_helper'
 require 'smart_proxy_openbolt/lru_cache'
 
-class LruCacheTest < Test::Unit::TestCase
+class LruCacheTest < SmartProxyOpenboltTestCase
   def test_stores_and_retrieves_values
     cache = Proxy::OpenBolt::LruCache.new(10)
     cache.put('key', 'value')

@@ -7,11 +7,16 @@ require 'tmpdir'
 
 $LOAD_PATH << File.join(File.dirname(__FILE__), '..', 'lib')
 
+# smart_proxy_for_testing hardcodes log_file to ./logs/test.log. If that
+# directory doesn't exist the logger falls back to STDOUT, flooding test
+# output with DEBUG/ERROR lines that mask real failures. Create it before
+# loading the test harness so logs go to a file instead.
+SMART_PROXY_LOG_DIR = File.join(File.dirname(__FILE__), '..', 'logs')
+FileUtils.mkdir_p(SMART_PROXY_LOG_DIR)
+
 require 'smart_proxy_for_testing'
 
-# Create logs directory in a temp dir to avoid polluting the project tree
-logdir = File.join(Dir.tmpdir, 'openbolt-test-logs')
-FileUtils.mkdir_p(logdir)
+at_exit { FileUtils.rm_rf(SMART_PROXY_LOG_DIR) }
 
 # Base test class with temp log_dir management for tests that need disk I/O
 class SmartProxyOpenboltTestCase < Test::Unit::TestCase

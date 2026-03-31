@@ -35,9 +35,9 @@ module Proxy::OpenBolt
         result = execute
         update_status(result.status)
         store_result(result)
-      rescue => execute_error
-        # This should never happen, but just in case we made a coding error,
-        # expose something in the result.
+      rescue Exception => execute_error
+        # Catch everything including non-StandardError exceptions (e.g.
+        # ScriptError) so the job always gets a terminal status.
         update_status(:exception)
         logger.error("Job #{@id} failed (#{execute_error.class}): #{execute_error.message}")
         logger.debug(execute_error.backtrace.join("\n")) if execute_error.backtrace

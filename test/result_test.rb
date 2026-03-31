@@ -1,7 +1,7 @@
 require 'test_helper'
 require 'smart_proxy_openbolt/result'
 
-class ResultTest < Test::Unit::TestCase
+class ResultTest < SmartProxyOpenboltTestCase
   def test_exitcode_zero_with_valid_json
     result = Proxy::OpenBolt::Result.new('bolt task run foo', '{"items":[]}', 'log output', 0)
 

@@ -1,6 +1,7 @@
 require 'test_helper'
 require 'smart_proxy_openbolt/plugin'
 require 'smart_proxy_openbolt/executor'
+require 'smart_proxy_openbolt/task_job'
 require 'smart_proxy_openbolt/result'
 
 class ExecutorTest < SmartProxyOpenboltTestCase
@@ -12,7 +13,7 @@ class ExecutorTest < SmartProxyOpenboltTestCase
   end
 
   def test_add_job_returns_uuid
-    job = Proxy::OpenBolt::Job.new('task', {}, {})
+    job = make_stubbed_task_job
     id = @executor.add_job(job)
 
     assert id.is_a?(String)
@@ -20,7 +21,7 @@ class ExecutorTest < SmartProxyOpenboltTestCase
   end
 
   def test_add_job_sets_job_id
-    job = Proxy::OpenBolt::Job.new('task', {}, {})
+    job = make_stubbed_task_job
     id = @executor.add_job(job)
 
     assert_equal id, job.id
@@ -70,7 +71,7 @@ class ExecutorTest < SmartProxyOpenboltTestCase
   end
 
   def test_status_returns_cached_job
-    job = Proxy::OpenBolt::Job.new('task', {}, {})
+    job = make_stubbed_task_job
     id = @executor.add_job(job)
 
     # Job was just added, should be :pending from the in-memory cache
@@ -100,5 +101,11 @@ class ExecutorTest < SmartProxyOpenboltTestCase
 
   def test_get_job_returns_invalid_for_nonexistent_file
     assert_equal :invalid, @executor.status('does-not-exist-anywhere')
+  end
+
+  def make_stubbed_task_job
+    job = Proxy::OpenBolt::TaskJob.new('test::task', {}, {}, ['node1'])
+    Proxy::OpenBolt.stubs(:openbolt).returns(['{"items":[]}', '', 0])
+    job
   end
 end
