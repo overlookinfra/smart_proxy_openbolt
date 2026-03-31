@@ -2,7 +2,6 @@ require 'json'
 require 'open3'
 require 'smart_proxy_openbolt/executor'
 require 'smart_proxy_openbolt/error'
-require 'thread'
 
 module Proxy::OpenBolt
   extend ::Proxy::Util
@@ -97,15 +96,26 @@ module Proxy::OpenBolt
       :description => 'Verify remote host SSL certificate when connecting to hosts via WinRM.',
     },
   }
-  class << self
-    @@mutex = Mutex.new
+  SORTED_OPTIONS = OPENBOLT_OPTIONS.sort.to_h.freeze
 
+  @mutex = Mutex.new
+
+  class << self
     def openbolt_options
-      OPENBOLT_OPTIONS.sort.to_h
+      SORTED_OPTIONS
     end
 
     def executor
-      @executor ||= Proxy::OpenBolt::Executor.instance
+      @executor ||= Executor.instance
+    end
+
+    def validate_job_id!(id)
+      return if id =~ /\A[a-f0-9\-]+\z/i
+      raise Error.new(message: 'Invalid job ID format')
+    end
+
+    def result_file_path(id)
+      File.join(Plugin.settings.log_dir, "#{id}.json")
     end
 
     # /tasks or /tasks/reload
@@ -113,7 +123,7 @@ module Proxy::OpenBolt
       # If we need to reload, only one instance of the reload
       # should happen at once. Make others wait until it is
       # finished.
-      @@mutex.synchronize do
+      @mutex.synchronize do
         @tasks = nil if reload
         @tasks || reload_tasks
       end
@@ -123,59 +133,27 @@ module Proxy::OpenBolt
       task_data = {}
 
       # Get a list of all tasks
-      command = "bolt task show --project #{Proxy::OpenBolt::Plugin.settings.environment_path} --format json"
-      stdout, stderr, status = openbolt(command)
-      unless status.exitstatus.zero?
-        raise Proxy::OpenBolt::CliError.new(
-          message:  'Error occurred when fetching tasks names.',
-          exitcode: status.exitstatus,
-          stdout:   stdout,
-          stderr:   stderr,
-          command:  command,
-        )
-      end
-      task_names = []
-      begin
-        task_names = JSON.parse(stdout)['tasks'].map { |t| t[0] }
-      rescue JSON::ParserError => e
-        raise Proxy::OpenBolt::Error.new(
-          message:   "Error occurred when parsing 'bolt task show' output.",
-          exception: e,
-        )
-      end
+      command = ['bolt', 'task', 'show',
+                 '--project', Plugin.settings.environment_path,
+                 '--format', 'json']
+      parsed = openbolt_json(command)
+      task_list = parsed['tasks']
+      raise Error.new(
+        message: "Unexpected output from 'bolt task show': expected 'tasks' to be an array, got #{task_list.class}.",
+      ) unless task_list.is_a?(Array)
 
-      # Get metadata for each task and put into @tasks
-      task_names.each do |name|
-        command = "bolt task show #{name} --project #{Proxy::OpenBolt::Plugin.settings.environment_path} --format json"
-        stdout, stderr, status = openbolt(command)
-        unless status.exitstatus.zero?
-          @tasks = nil
-          raise Proxy::OpenBolt::CliError.new(
-            message:  "Error occurred when fetching task information for #{name}",
-            exitcode: status.exitstatus,
-            stdout:   stdout,
-            stderr:   stderr,
-            command:  command,
-          )
-        end
-        metadata = {}
-        begin
-          metadata = JSON.parse(stdout)['metadata']
-        rescue Json::ParserError => e
-          @tasks = nil
-          raise Proxy::OpenBolt::Error.new(
-            message:   "Error occurred when parsing 'bolt task show #{name}' output.",
-            exception: e,
-          )
-        end
-        if metadata.nil?
-          @tasks = nil
-          raise Proxy::OpenBolt::Error.new(
-            message: "Invalid metadata found for task #{name}",
-            output: output,
-            command: command,
-          )
-        end
+      # Get metadata for each task
+      task_list.each do |task_entry|
+        name = task_entry[0]
+        command = ['bolt', 'task', 'show', name,
+                   '--project', Plugin.settings.environment_path,
+                   '--format', 'json']
+        result = openbolt_json(command)
+        metadata = result['metadata']
+        raise Error.new(
+          message: "Invalid metadata found for task #{name}",
+        ) if metadata.nil?
+
         task_data[name] = {
           'description' => metadata['description'] || '',
           'parameters'  => metadata['parameters'] || {},
@@ -203,102 +181,149 @@ module Proxy::OpenBolt
     def launch_task(data)
       ### Validation ###
       unless data.is_a?(Hash)
-        raise Proxy::OpenBolt::Error.new(message: 'Data passed in to launch_task function is not a hash. This is most likely a bug in the smart_proxy_openbolt plugin. Please file an issue with the maintainers.').to_json
+        raise Error.new(message: 'Data passed in to launch_task function is not a hash. This is most likely a bug in the smart_proxy_openbolt plugin. Please file an issue with the maintainers.')
       end
       fields = ['name', 'parameters', 'targets', 'options']
       unless fields.all? { |k| data.keys.include?(k) }
-        raise Proxy::OpenBolt::Error.new(message: "You must provide values for 'name', 'parameters', 'targets', and 'transport'.")
+        raise Error.new(message: "You must provide values for 'name', 'parameters', 'targets', and 'options'.")
       end
       name = data['name']
       params = data['parameters'] || {}
       targets = data['targets']
-      options = data['options']
+      options = data['options'] || {}
 
       logger.info("Task: #{name}")
       logger.info("Parameters: #{params.inspect}")
       logger.info("Targets: #{targets.inspect}")
-      logger.info("Options: #{scrub(options, options.inspect.to_s)}")
+      logger.info("Options: #{scrub(options, options.inspect)}")
 
       # Validate name
-      raise Proxy::OpenBolt::Error.new(message: "You must provide a value for 'name'.") unless name.is_a?(String) && !name.empty?
-      raise Proxy::OpenBolt::Error.new(message: "Task #{name} not found.") unless tasks.keys.include?(name)
+      raise Error.new(message: "You must provide a value for 'name'.") unless name.is_a?(String) && !name.empty?
+      raise Error.new(message: "Task #{name} not found.") unless tasks.keys.include?(name)
 
       # Validate parameters
-      raise Proxy::OpenBolt::Error.new(message: "The 'parameters' value should be a hash.") unless params.is_a?(Hash)
-      missing = []
-      tasks[name]['parameters'].each do |k, v|
-        next if v['type'].start_with?('Optional[')
-        missing << k unless params.keys.include?(k)
-      end
-      raise Proxy::OpenBolt::Error.new(message: "Missing required parameters: #{missing}") unless missing.empty?
+      raise Error.new(message: "The 'parameters' value should be a hash.") unless params.is_a?(Hash)
       extra = params.keys - tasks[name]['parameters'].keys
-      raise Proxy::OpenBolt::Error.new(message: "Unknown parameters: #{extra}") unless extra.empty?
+      raise Error.new(message: "Unknown parameters: #{extra}") unless extra.empty?
 
       # Normalize parameters, ensuring blank values are not passed
       params = normalize_values(params)
       logger.info("Normalized parameters: #{params.inspect}")
 
-      # Validate targets
-      raise Proxy::OpenBolt::Error.new(message: "The 'targets' value should be a string or an array.'") unless targets.is_a?(String) || targets.is_a?(Array)
-      targets = targets.split(',').map { |t| t.strip }
-      raise Proxy::OpenBolt::Error.new(message: "The 'targets' value should not be empty.") if targets.empty?
+      # Check required parameters after normalization so blank values are caught
+      missing = []
+      tasks[name]['parameters'].each do |k, v|
+        next if v['type']&.start_with?('Optional[')
+        next if v.key?('default')
+        missing << k unless params.key?(k)
+      end
+      raise Error.new(message: "Missing required parameters: #{missing}") unless missing.empty?
 
-      options ||= {}
+      # Validate targets
+      raise Error.new(message: "The 'targets' value should be a string or an array.") unless targets.is_a?(String) || targets.is_a?(Array)
+      if targets.is_a?(Array)
+        raise Error.new(message: "All target values must be strings.") unless targets.all? { |target| target.is_a?(String) }
+        targets = targets.map(&:strip).reject(&:empty?)
+      else
+        targets = targets.split(',').map(&:strip).reject(&:empty?)
+      end
+      raise Error.new(message: "The 'targets' value should not be empty.") if targets.empty?
+
       # Validate options
-      raise Proxy::OpenBolt::Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
-      extra = options.keys - OPENBOLT_OPTIONS.keys
-      raise Proxy::OpenBolt::Error.new(message: "Invalid options specified: #{extra}") unless extra.empty?
+      raise Error.new(message: "The 'options' value should be a hash.") unless options.is_a?(Hash)
       unknown = options.keys - OPENBOLT_OPTIONS.keys
-      raise Proxy::OpenBolt::Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
+      raise Error.new(message: "Invalid options specified: #{unknown}") unless unknown.empty?
 
       # Normalize options, removing blank values
       options = normalize_values(options)
-      logger.info("Normalized options: #{scrub(options, options.inspect.to_s)}")
+      logger.info("Normalized options: #{scrub(options, options.inspect)}")
       OPENBOLT_OPTIONS.each { |key, value| options[key] ||= value[:default] if value.key?(:default) }
-      logger.info("Options with required defaults: #{scrub(options, options.inspect.to_s)}")
+      logger.info("Options with required defaults: #{scrub(options, options.inspect)}")
 
       # Validate option types
       options = options.map do |key, value|
         type = OPENBOLT_OPTIONS[key][:type]
-        value = value.nil? ? '' : value # Just in case
         case type
         when :boolean
           if value.is_a?(String)
             value = value.downcase.strip
-            raise Proxy::OpenBolt::Error.new(message: "Option #{key} must be a boolean 'true' or 'false'. Current value: #{value}") unless ['true', 'false'].include?(value)
+            raise Error.new(message: "Option #{key} must be a boolean 'true' or 'false'. Current value: #{value}") unless ['true', 'false'].include?(value)
             value = value == 'true'
           end
-          raise Proxy::OpenBolt::Error.new(message: "Option #{key} must be a boolean true for false. It appears to be #{value.class}.") unless [TrueClass, FalseClass].include?(value.class)
+          raise Error.new(message: "Option #{key} must be a boolean true or false. It appears to be #{value.class}.") unless [TrueClass, FalseClass].include?(value.class)
         when :string
-          value = value.strip
-          raise Proxy::OpenBolt::Error.new(message: "Option #{key} must have a value when the option is specified.") if value.empty?
+          raise Error.new(message: "Option #{key} must have a value when the option is specified.") if value.to_s.empty?
         when Array
-          value = value.strip
-          raise Proxy::OpenBolt::Error.new(message: "Option #{key} must have one of the following values: #{OPENBOLT_OPTIONS[key][:type]}") unless OPENBOLT_OPTIONS[key][:type].include?(value)
+          raise Error.new(message: "Option #{key} must have one of the following values: #{OPENBOLT_OPTIONS[key][:type]}") unless OPENBOLT_OPTIONS[key][:type].include?(value.to_s)
         end
         [key, value]
       end.to_h
-      logger.info("Final options: #{scrub(options, options.inspect.to_s)}")
+      logger.info("Final options: #{scrub(options, options.inspect)}")
 
       ### Run the task ###
       task = TaskJob.new(name, params, options, targets)
       id = executor.add_job(task)
 
-      return {
-        id: id
-      }.to_json
+      { id: id }.to_json
     end
 
     # /job/:id/status
     def get_status(id)
-      return {
-        status: executor.status(id),
-      }.to_json
+      validate_job_id!(id)
+      { status: executor.status(id) }.to_json
     end
 
     # /job/:id/result
     def get_result(id)
-      executor.result(id).to_json
+      validate_job_id!(id)
+      result = executor.result(id)
+      return result if result.is_a?(String)
+      raise Error.new(message: "Job not found: #{id}") if result == :invalid
+      result.to_json
+    rescue Errno::ENOENT
+      raise Error.new(message: "Result file not found for job: #{id}")
+    end
+
+    # DELETE /job/:id/artifacts
+    def delete_artifacts(id)
+      validate_job_id!(id)
+
+      file_path = result_file_path(id)
+      real_path = File.realpath(file_path)
+      expected_dir = File.realpath(Plugin.settings.log_dir)
+      raise Error.new(message: 'Invalid file path') unless real_path.start_with?(expected_dir)
+
+      File.delete(file_path)
+      executor.remove_job(id)
+      logger.info("Deleted artifacts for job #{id}")
+      { status: 'deleted', job_id: id }.to_json
+    rescue Errno::ENOENT
+      logger.warning("Artifacts not found for job #{id}")
+      { status: 'not_found', job_id: id }.to_json
+    end
+
+    # Runs an openbolt command that is expected to produce JSON on stdout.
+    # Returns the parsed JSON hash. Raises CliError on non-zero exit or
+    # Error on JSON parse failure.
+    def openbolt_json(command)
+      stdout, stderr, exitcode = openbolt(command)
+      unless exitcode.zero?
+        raise CliError.new(
+          message:  "Error running '#{command.first(4).join(' ')}'.",
+          exitcode: exitcode,
+          stdout:   stdout,
+          stderr:   stderr,
+          command:  command.join(' '),
+        )
+      end
+      begin
+        JSON.parse(stdout)
+      rescue JSON::ParserError => e
+        raise Error.new(
+          message:   "Error parsing JSON output from '#{command.first(4).join(' ')}'.",
+          exception: e,
+        )
+      end
     end
 
     # Anything that needs to run an OpenBolt CLI command should use this.
@@ -309,17 +334,29 @@ module Proxy::OpenBolt
     # --format json is specified. At some point, figure out how to make
     # OpenBolt's logger log to a file instead without having to have a special
     # project config file.
+    # Returns [stdout, stderr, exitcode]. Handles the case where the
+    # process is killed by a signal (exitstatus is nil).
     def openbolt(command)
       env = { 'BOLT_GEM' => 'true', 'BOLT_DISABLE_ANALYTICS' => 'true' }
-      Open3.capture3(env, *command.split)
+      stdout, stderr, status = Open3.capture3(env, *command)
+      exitcode = status.exitstatus
+      if exitcode.nil?
+        # 128 + signal follows the Unix/shell convention for signal exit codes.
+        exitcode = 128 + (status.termsig || 0)
+        stderr = "Process was killed by signal #{status.termsig}.\n#{stderr}"
+      end
+      [stdout, stderr, exitcode]
     end
 
-    # Probably needs to go in a utils class somewhere
     # Used only for display text that may contain sensitive OpenBolt
-    # options values. Should to be used to pass anything to the CLI.
+    # options values. Should not be used to pass anything to the CLI.
     def scrub(options, text)
       sensitive = options.select { |key, _| OPENBOLT_OPTIONS[key] && OPENBOLT_OPTIONS[key][:sensitive] }
-      sensitive.each { |_, value| text = text.gsub(value, '*****') }
+      sensitive.each do |_, value|
+        redact = value.to_s
+        next if redact.empty?
+        text = text.gsub(redact, '*****')
+      end
       text
     end
   end

@@ -21,7 +21,12 @@ module Proxy::OpenBolt
     # is potentially faster (if called after this finishes). Do it
     # async so we don't block. The reload_tasks function uses a mutex
     # so it will be safe to call /tasks before it completes.
-    Thread.new { Proxy::OpenBolt.tasks }
+    Thread.new do
+      Proxy::OpenBolt.tasks
+    rescue => error
+      Proxy::OpenBolt.logger.error("Task prefetch failed (#{error.class}): #{error.message}")
+      Proxy::OpenBolt.logger.debug(error.backtrace.join("\n")) if error.backtrace
+    end
 
     get '/tasks' do
       catch_errors { Proxy::OpenBolt.tasks.to_json }
@@ -37,7 +42,11 @@ module Proxy::OpenBolt
 
     post '/launch/task' do
       catch_errors do
-        data = JSON.parse(request.body.read)
+        begin
+          data = JSON.parse(request.body.read)
+        rescue JSON::ParserError => parse_error
+          raise Error.new(message: "Invalid JSON in request body: #{parse_error.message}")
+        end
         Proxy::OpenBolt.launch_task(data)
       end
     end
@@ -51,40 +60,15 @@ module Proxy::OpenBolt
     end
 
     delete '/job/:id/artifacts' do |id|
-      catch_errors do
-        # Validate the job ID format to prevent directory traversal
-        unless id =~ /\A[a-f0-9\-]+\z/i
-          raise Proxy::OpenBolt::Error.new(message: "Invalid job ID format")
-        end
-
-        file_path = File.join(Proxy::OpenBolt::Plugin.settings.log_dir, "#{id}.json")
-
-        if File.exist?(file_path)
-          real_path = File.realpath(file_path)
-          expected_dir = File.realpath(Proxy::OpenBolt::Plugin.settings.log_dir)
-          raise Proxy::OpenBolt::Error.new(message: "Invalid file path") unless real_path.start_with?(expected_dir)
-
-          File.delete(file_path)
-          logger.info("Deleted artifacts for job #{id}")
-          { status: 'deleted', job_id: id, path: file_path }.to_json
-        else
-          logger.warning("Artifacts not found for job #{id}")
-          { status: 'not_found', job_id: id }.to_json
-        end
-      end
+      catch_errors { Proxy::OpenBolt.delete_artifacts(id) }
     end
 
     private
 
-    def catch_errors(&block)
-      begin
-        yield
-      rescue Proxy::OpenBolt::Error => e
-        e.to_json
-      rescue Exception => e
-        raise e
-        #Proxy::OpenBolt::Error.new(message: "Unhandled exception", exception: e).to_json
-      end
+    def catch_errors
+      yield
+    rescue Error => error
+      error.to_json
     end
   end
 end

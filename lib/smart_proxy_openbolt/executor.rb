@@ -2,6 +2,7 @@ require 'concurrent'
 require 'securerandom'
 require 'singleton'
 require 'smart_proxy_openbolt/job'
+require 'smart_proxy_openbolt/lru_cache'
 require 'smart_proxy_openbolt/task_job'
 
 module Proxy::OpenBolt
@@ -9,17 +10,18 @@ module Proxy::OpenBolt
     include Singleton
 
     SHUTDOWN_TIMEOUT = 30
+    MAX_CACHED_JOBS = 1000
 
     def initialize
-      @pool = Concurrent::FixedThreadPool.new(Proxy::OpenBolt::Plugin.settings.workers.to_i)
-      @jobs = Concurrent::Map.new
+      @pool = Concurrent::FixedThreadPool.new(Plugin.settings.workers.to_i)
+      @jobs = LruCache.new(MAX_CACHED_JOBS)
     end
 
     def add_job(job)
       raise ArgumentError, "Only Job instances can be added" unless job.is_a?(Job)
       id = SecureRandom.uuid
       job.id = id
-      @jobs[id] = job
+      @jobs.put(id, job)
       @pool.post { job.process }
       id
     end
@@ -27,13 +29,17 @@ module Proxy::OpenBolt
     def status(id)
       job = get_job(id)
       return :invalid unless job
-      job&.status
+      job.status
     end
 
     def result(id)
       job = get_job(id)
       return :invalid unless job
       job.result
+    end
+
+    def remove_job(id)
+      @jobs.delete(id)
     end
 
     # How many workers are currently busy
@@ -56,36 +62,36 @@ module Proxy::OpenBolt
       @pool.running?
     end
 
-    # Stop accepting tasks and wait up to SHUTDOWN_TIMEOUT seconds
-    # for in-flight jobs to finish. If timeout = nil, wait forever.
-    def shutdown(timeout)
+    # Stop accepting tasks and wait for in-flight jobs to finish.
+    # If timeout is nil, wait forever.
+    def shutdown(timeout = SHUTDOWN_TIMEOUT)
       @pool.shutdown
-      @pool.wait_for_termination(SHUTDOWN_TIMEOUT)
+      @pool.wait_for_termination(timeout)
     end
 
     private
 
     def get_job(id)
-      return @jobs[id] if @jobs.keys.include?(id)
+      cached = @jobs.get(id)
+      return cached if cached
+
       # Look on disk for a past run that may have happened
-      job = nil
-      file = "#{Proxy::OpenBolt::Plugin.settings.log_dir}/#{id}.json"
-      if File.exist?(file)
-        begin
-          data = JSON.parse(File.read(file))
-          return nil if data['schema'].nil? || data['schema'] != 1
-          return nil if data['status'].nil?
-          # This is only for reading back status and result. Don't try
-          # to fill in the other arguments correctly, and don't assume
-          # they are there after execution.
-          job = Job.new(nil, nil, nil)
-          job.id = id
-          job.update_status(data['status'].to_sym)
-          @jobs[id] = job
-        rescue JSON::ParserError
-        end
+      file = Proxy::OpenBolt.result_file_path(id)
+      begin
+        data = JSON.parse(File.read(file))
+        return nil if data['schema'].nil? || data['schema'] != 1
+        return nil if data['status'].nil?
+        # This is only for reading back status and result. Don't try
+        # to fill in the other arguments correctly, and don't assume
+        # they are there after execution.
+        job = Job.new(nil, nil, nil)
+        job.id = id
+        job.update_status(data['status'].to_sym)
+        @jobs.put(id, job)
+        job
+      rescue Errno::ENOENT, JSON::ParserError
+        nil
       end
-      job
     end
   end
 end
