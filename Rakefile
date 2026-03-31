@@ -10,12 +10,12 @@ RuboCop::RakeTask.new
 desc 'Default: run unit tests.'
 task :default => :test
 
-desc 'Test Pulp plugin.'
+desc 'Run unit tests.'
 Rake::TestTask.new(:test) do |t|
   t.libs << '.'
   t.libs << 'lib'
   t.libs << 'test'
-  t.test_files = FileList['test/**/*_test.rb']
+  t.test_files = FileList['test/unit/**/*_test.rb']
   t.options = '--verbose'
   t.verbose = true
 end
