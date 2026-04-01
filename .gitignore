@@ -1,10 +1,13 @@
 **/.DS_Store
 *.gem
-# Local testing files
-*.rpm
-*.sh
+# Local testing files (root-level only)
+/*.rpm
+/*.sh
 /vendor
 /.vendor
 /Gemfile.lock
 /.bundle
 /logs
+# Generated at runtime by acceptance tests
+/test/acceptance/fixtures/keys/
+/test/acceptance/docker/ssl-export/

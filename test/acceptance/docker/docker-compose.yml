@@ -1,0 +1,44 @@
+services:
+  proxy:
+    container_name: openbolt-proxy
+    hostname: openbolt-proxy
+    image: openbolt-proxy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: proxy/Dockerfile
+    ports:
+      - "8443:8443"
+    volumes:
+      # Plugin source (bind-mounted for dev iteration)
+      - ../../../:/opt/smart_proxy_openbolt
+      # Task modules at the production default path
+      - ../fixtures/modules:/etc/puppetlabs/code/environments/production/modules:ro
+      # SSH private key for bolt to connect to targets
+      - ../fixtures/keys/id_rsa:/tmp/ssh/id_rsa:ro
+    depends_on:
+      - target1
+      - target2
+    healthcheck:
+      test: ["CMD", "curl", "-sfk", "https://localhost:8443/openbolt/tasks"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  target1:
+    container_name: openbolt-target1
+    hostname: openbolt-target1
+    image: openbolt-target
+    build:
+      context: .
+      dockerfile: target/Dockerfile
+    volumes:
+      - ../fixtures/keys/id_rsa.pub:/tmp/id_rsa.pub:ro
+
+  target2:
+    container_name: openbolt-target2
+    hostname: openbolt-target2
+    image: openbolt-target
+    volumes:
+      - ../fixtures/keys/id_rsa.pub:/tmp/id_rsa.pub:ro
