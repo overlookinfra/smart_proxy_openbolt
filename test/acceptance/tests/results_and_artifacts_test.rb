@@ -42,7 +42,7 @@ class ResultsAndArtifactsTest < AcceptanceTestCase
       # Target names may include or exclude the port in the result
       target_host = target.split(':').first
       assert targets_in_result.any? { |result_target| result_target.include?(target_host) },
-             "Expected target #{target_host} in result targets: #{targets_in_result}"
+        "Expected target #{target_host} in result targets: #{targets_in_result}"
     end
   end
 
@@ -57,11 +57,11 @@ class ResultsAndArtifactsTest < AcceptanceTestCase
 
     _response, result = api_get("/job/#{job_id}/result")
     assert result.key?('command'), 'Expected command field in result'
-    assert result['command'].length > 0, 'Command field should not be empty'
+    assert !result['command'].empty?, 'Command field should not be empty'
     assert !result['command'].include?(secret_password),
-           'Password should be scrubbed from result command'
+      'Password should be scrubbed from result command'
     assert result['command'].include?('*****'),
-           'Scrubbed password should be replaced with *****'
+      'Scrubbed password should be replaced with *****'
   end
 
   def test_scrubbing_does_not_affect_non_sensitive_options
@@ -75,7 +75,7 @@ class ResultsAndArtifactsTest < AcceptanceTestCase
     _response, result = api_get("/job/#{job_id}/result")
     assert result.key?('command'), 'Expected command field in result'
     assert result['command'].include?('--verbose'),
-           'Non-sensitive options should appear in the command field'
+      'Non-sensitive options should appear in the command field'
   end
 
   def test_sudo_password_scrubbing
@@ -90,9 +90,9 @@ class ResultsAndArtifactsTest < AcceptanceTestCase
     _response, result = api_get("/job/#{job_id}/result")
     assert result.key?('command'), 'Expected command field in result'
     assert !result['command'].include?(secret),
-           'sudo-password should be scrubbed from result command'
+      'sudo-password should be scrubbed from result command'
     assert result['command'].include?('*****'),
-           'Scrubbed sudo-password should be replaced with *****'
+      'Scrubbed sudo-password should be replaced with *****'
   end
 
   def test_command_field_contains_task_and_targets
@@ -140,9 +140,9 @@ class ResultsAndArtifactsTest < AcceptanceTestCase
     _response, result = api_get("/job/#{job_id}/result")
     assert_equal 'failure', result['status']
     assert !result['command'].include?(secret),
-           'Password should be scrubbed from failed task command'
+      'Password should be scrubbed from failed task command'
     assert result['command'].include?('*****'),
-           'Scrubbed password should be replaced with ***** in failed task'
+      'Scrubbed password should be replaced with ***** in failed task'
   end
 
   def test_result_not_available_while_running
@@ -156,7 +156,7 @@ class ResultsAndArtifactsTest < AcceptanceTestCase
 
     _response, parsed = api_get("/job/#{job_id}/result")
     assert parsed.key?('error'),
-           "Expected error fetching result of in-progress job, got: #{parsed}"
+      "Expected error fetching result of in-progress job, got: #{parsed}"
 
     wait_for_job(job_id, timeout: 30)
   end

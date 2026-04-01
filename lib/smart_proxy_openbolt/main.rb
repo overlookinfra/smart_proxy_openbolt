@@ -7,7 +7,7 @@ module Proxy::OpenBolt
   extend ::Proxy::Util
   extend ::Proxy::Log
 
-  TRANSPORTS = ['ssh', 'winrm']
+  TRANSPORTS = ['ssh', 'winrm'].freeze
   # The key should be exactly the flag name passed to OpenBolt
   # Type must be :boolean, :string, or an array of acceptable string values
   # Transport must be an array of transport types it applies to. This is
@@ -95,7 +95,7 @@ module Proxy::OpenBolt
       :sensitive => false,
       :description => 'Verify remote host SSL certificate when connecting to hosts via WinRM.',
     },
-  }
+  }.freeze
   SORTED_OPTIONS = OPENBOLT_OPTIONS.sort.to_h.freeze
 
   @mutex = Mutex.new
@@ -110,7 +110,7 @@ module Proxy::OpenBolt
     end
 
     def validate_job_id!(id)
-      return if id =~ /\A[a-f0-9\-]+\z/i
+      return if /\A[a-f0-9-]+\z/i.match?(id)
       raise Error.new(message: 'Invalid job ID format')
     end
 
@@ -138,9 +138,11 @@ module Proxy::OpenBolt
                  '--format', 'json']
       parsed = openbolt_json(command)
       task_list = parsed['tasks']
-      raise Error.new(
-        message: "Unexpected output from 'bolt task show': expected 'tasks' to be an array, got #{task_list.class}.",
-      ) unless task_list.is_a?(Array)
+      unless task_list.is_a?(Array)
+        raise Error.new(
+          message: "Unexpected output from 'bolt task show': expected 'tasks' to be an array, got #{task_list.class}."
+        )
+      end
 
       # Get metadata for each task
       task_list.each do |task_entry|
@@ -150,9 +152,11 @@ module Proxy::OpenBolt
                    '--format', 'json']
         result = openbolt_json(command)
         metadata = result['metadata']
-        raise Error.new(
-          message: "Invalid metadata found for task #{name}",
-        ) if metadata.nil?
+        if metadata.nil?
+          raise Error.new(
+            message: "Invalid metadata found for task #{name}"
+          )
+        end
 
         task_data[name] = {
           'description' => metadata['description'] || '',
@@ -184,7 +188,7 @@ module Proxy::OpenBolt
         raise Error.new(message: 'Data passed in to launch_task function is not a hash. This is most likely a bug in the smart_proxy_openbolt plugin. Please file an issue with the maintainers.')
       end
       fields = ['name', 'parameters', 'targets', 'options']
-      unless fields.all? { |k| data.keys.include?(k) }
+      unless fields.all? { |k| data.key?(k) }
         raise Error.new(message: "You must provide values for 'name', 'parameters', 'targets', and 'options'.")
       end
       name = data['name']
@@ -199,7 +203,7 @@ module Proxy::OpenBolt
 
       # Validate name
       raise Error.new(message: "You must provide a value for 'name'.") unless name.is_a?(String) && !name.empty?
-      raise Error.new(message: "Task #{name} not found.") unless tasks.keys.include?(name)
+      raise Error.new(message: "Task #{name} not found.") unless tasks.key?(name)
 
       # Validate parameters
       raise Error.new(message: "The 'parameters' value should be a hash.") unless params.is_a?(Hash)
@@ -222,7 +226,7 @@ module Proxy::OpenBolt
       # Validate targets
       raise Error.new(message: "The 'targets' value should be a string or an array.") unless targets.is_a?(String) || targets.is_a?(Array)
       if targets.is_a?(Array)
-        raise Error.new(message: "All target values must be strings.") unless targets.all? { |target| target.is_a?(String) }
+        raise Error.new(message: "All target values must be strings.") unless targets.all?(String)
         targets = targets.map(&:strip).reject(&:empty?)
       else
         targets = targets.split(',').map(&:strip).reject(&:empty?)
@@ -241,7 +245,7 @@ module Proxy::OpenBolt
       logger.info("Options with required defaults: #{scrub(options, options.inspect)}")
 
       # Validate option types
-      options = options.map do |key, value|
+      options = options.to_h do |key, value|
         type = OPENBOLT_OPTIONS[key][:type]
         case type
         when :boolean
@@ -257,7 +261,7 @@ module Proxy::OpenBolt
           raise Error.new(message: "Option #{key} must have one of the following values: #{OPENBOLT_OPTIONS[key][:type]}") unless OPENBOLT_OPTIONS[key][:type].include?(value.to_s)
         end
         [key, value]
-      end.to_h
+      end
       logger.info("Final options: #{scrub(options, options.inspect)}")
 
       ### Run the task ###
@@ -313,7 +317,7 @@ module Proxy::OpenBolt
           exitcode: exitcode,
           stdout:   stdout,
           stderr:   stderr,
-          command:  command.join(' '),
+          command:  command.join(' ')
         )
       end
       begin
@@ -321,7 +325,7 @@ module Proxy::OpenBolt
       rescue JSON::ParserError => e
         raise Error.new(
           message:   "Error parsing JSON output from '#{command.first(4).join(' ')}'.",
-          exception: e,
+          exception: e
         )
       end
     end
@@ -352,7 +356,7 @@ module Proxy::OpenBolt
     # options values. Should not be used to pass anything to the CLI.
     def scrub(options, text)
       sensitive = options.select { |key, _| OPENBOLT_OPTIONS[key] && OPENBOLT_OPTIONS[key][:sensitive] }
-      sensitive.each do |_, value|
+      sensitive.each_value do |value|
         redact = value.to_s
         next if redact.empty?
         text = text.gsub(redact, '*****')

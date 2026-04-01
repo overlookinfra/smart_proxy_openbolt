@@ -163,9 +163,9 @@ class TasksTest < SmartProxyOpenboltTestCase
     task_show_stdout = '{"metadata":{"description":"A test task","parameters":{"name":{"type":"String"}}}}'
 
     Proxy::OpenBolt.expects(:openbolt).with { |cmd| cmd.include?('show') && !cmd.include?('my_module::my_task') }
-                   .returns([task_list_stdout, '', 0])
+                                      .returns([task_list_stdout, '', 0])
     Proxy::OpenBolt.expects(:openbolt).with { |cmd| cmd.include?('my_module::my_task') }
-                   .returns([task_show_stdout, '', 0])
+                                      .returns([task_show_stdout, '', 0])
 
     result = Proxy::OpenBolt.tasks
     assert result.key?('my_module::my_task')
@@ -180,8 +180,8 @@ class TasksTest < SmartProxyOpenboltTestCase
     # First call requires exactly 2 openbolt invocations (list + show).
     # Second call should hit cache, so total remains 2.
     Proxy::OpenBolt.expects(:openbolt).twice
-      .returns([task_list_stdout, '', 0])
-      .then.returns([task_show_stdout, '', 0])
+                   .returns([task_list_stdout, '', 0])
+                   .then.returns([task_show_stdout, '', 0])
 
     Proxy::OpenBolt.tasks
     result = Proxy::OpenBolt.tasks
@@ -194,10 +194,10 @@ class TasksTest < SmartProxyOpenboltTestCase
 
     # 2 calls for initial load + 2 calls for reload = 4 total
     Proxy::OpenBolt.expects(:openbolt).times(4)
-      .returns([task_list_stdout, '', 0])
-      .then.returns([task_show_stdout, '', 0])
-      .then.returns([task_list_stdout, '', 0])
-      .then.returns([task_show_stdout, '', 0])
+                   .returns([task_list_stdout, '', 0])
+                   .then.returns([task_show_stdout, '', 0])
+                   .then.returns([task_list_stdout, '', 0])
+                   .then.returns([task_show_stdout, '', 0])
 
     Proxy::OpenBolt.tasks
     result = Proxy::OpenBolt.tasks(reload: true)
@@ -288,8 +288,8 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
         'parameters' => {
           'required_param' => { 'type' => 'String' },
           'optional_param' => { 'type' => 'Optional[String]' },
-        }
-      }
+        },
+      },
     })
   end
 
@@ -353,7 +353,7 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
       'name' => 'test::task',
       'parameters' => { 'required_param' => 'val' },
       'targets' => ['node1', 'node2'],
-      'options' => { 'transport' => 'ssh' }
+      'options' => { 'transport' => 'ssh' },
     }))
 
     assert_equal 'uuid', result['id']
@@ -397,13 +397,13 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
 
   def test_coerces_string_boolean_options
     captured_job = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job; true }.returns('uuid')
+    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job }.returns('uuid')
 
     Proxy::OpenBolt.launch_task({
       'name' => 'test::task',
       'parameters' => { 'required_param' => 'val' },
       'targets' => 'node1',
-      'options' => { 'verbose' => 'true', 'noop' => 'false' }
+      'options' => { 'verbose' => 'true', 'noop' => 'false' },
     })
 
     assert_equal true, captured_job.options['verbose']
@@ -426,7 +426,7 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
       'name' => 'test::task',
       'parameters' => { 'required_param' => 'val' },
       'targets' => 'node1,node2',
-      'options' => { 'transport' => 'ssh' }
+      'options' => { 'transport' => 'ssh' },
     }))
 
     assert_equal 'test-uuid-123', result['id']
@@ -434,13 +434,13 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
 
   def test_applies_default_transport
     captured_job = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job; true }.returns('uuid')
+    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job }.returns('uuid')
 
     Proxy::OpenBolt.launch_task({
       'name' => 'test::task',
       'parameters' => { 'required_param' => 'val' },
       'targets' => 'node1',
-      'options' => {}
+      'options' => {},
     })
 
     assert_equal 'ssh', captured_job.options['transport'], 'Default transport should be ssh'
@@ -463,8 +463,8 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
         'description' => 'Task with untyped param',
         'parameters' => {
           'name' => {},
-        }
-      }
+        },
+      },
     })
     Proxy::OpenBolt.executor.stubs(:add_job).returns('uuid')
 
@@ -482,8 +482,8 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
         'description' => 'Task with untyped param',
         'parameters' => {
           'name' => {},
-        }
-      }
+        },
+      },
     })
 
     error = assert_raise(Proxy::OpenBolt::Error) do
@@ -498,7 +498,7 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
 
   def test_passes_non_string_option_value_through
     captured_job = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job; true }.returns('uuid')
+    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job }.returns('uuid')
 
     Proxy::OpenBolt.launch_task({
       'name' => 'test::task',
@@ -516,7 +516,7 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
       'name' => 'test::task',
       'parameters' => { 'required_param' => 'val' },
       'targets' => 'node1',
-      'options' => nil
+      'options' => nil,
     }))
 
     assert_equal 'uuid', result['id']
@@ -529,8 +529,8 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
         'parameters' => {
           'required_param' => { 'type' => 'String' },
           'has_default' => { 'type' => 'String', 'default' => 'foo' },
-        }
-      }
+        },
+      },
     })
     Proxy::OpenBolt.executor.stubs(:add_job).returns('uuid')
 

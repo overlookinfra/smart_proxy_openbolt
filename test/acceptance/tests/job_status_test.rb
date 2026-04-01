@@ -12,7 +12,7 @@ class JobStatusTest < AcceptanceTestCase
 
     status = poll_job_status(job_id)
     assert %w[pending running].include?(status),
-           "Expected pending or running for in-progress job, got: #{status}"
+      "Expected pending or running for in-progress job, got: #{status}"
 
     terminal = wait_for_job(job_id, timeout: 30)
     assert_equal 'success', terminal
@@ -64,6 +64,6 @@ class JobStatusTest < AcceptanceTestCase
 
     _response, parsed = api_get("/job/#{job_id}/status")
     assert_equal 'invalid', parsed['status'],
-                 'Status should be invalid after artifact deletion'
+      'Status should be invalid after artifact deletion'
   end
 end

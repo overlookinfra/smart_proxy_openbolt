@@ -17,7 +17,7 @@ class ExecutorTest < SmartProxyOpenboltTestCase
     id = @executor.add_job(job)
 
     assert id.is_a?(String)
-    assert_match(/\A[a-f0-9\-]{36}\z/, id)
+    assert_match(/\A[a-f0-9-]{36}\z/, id)
   end
 
   def test_add_job_sets_job_id
@@ -46,7 +46,7 @@ class ExecutorTest < SmartProxyOpenboltTestCase
       'status' => 'success',
       'value' => { 'items' => [] },
       'log' => 'log output',
-      'schema' => 1
+      'schema' => 1,
     }
     File.write(File.join(@test_log_dir, "#{id}.json"), result_data.to_json)
 
@@ -60,7 +60,7 @@ class ExecutorTest < SmartProxyOpenboltTestCase
       'status' => 'success',
       'value' => { 'items' => [{ 'target' => 'node1' }] },
       'log' => 'some log',
-      'schema' => 1
+      'schema' => 1,
     }
     File.write(File.join(@test_log_dir, "#{id}.json"), result_data.to_json)
 

@@ -16,7 +16,7 @@ class FailureHandlingTest < AcceptanceTestCase
     _response, parsed = api_post('/launch/task', payload)
     assert parsed.key?('error'), 'Expected error for nonexistent task'
     assert parsed['error']['message'].include?('not found'),
-           "Expected 'not found' in error, got: #{parsed['error']['message']}"
+      "Expected 'not found' in error, got: #{parsed['error']['message']}"
   end
 
   def test_missing_required_parameter
@@ -29,7 +29,7 @@ class FailureHandlingTest < AcceptanceTestCase
     _response, parsed = api_post('/launch/task', payload)
     assert parsed.key?('error'), 'Expected error for missing required parameter'
     assert parsed['error']['message'].include?('Missing required'),
-           "Expected 'Missing required' in error, got: #{parsed['error']['message']}"
+      "Expected 'Missing required' in error, got: #{parsed['error']['message']}"
   end
 
   def test_unknown_parameter
@@ -42,7 +42,7 @@ class FailureHandlingTest < AcceptanceTestCase
     _response, parsed = api_post('/launch/task', payload)
     assert parsed.key?('error'), 'Expected error for unknown parameter'
     assert parsed['error']['message'].include?('Unknown parameters'),
-           "Expected 'Unknown parameters' in error, got: #{parsed['error']['message']}"
+      "Expected 'Unknown parameters' in error, got: #{parsed['error']['message']}"
   end
 
   def test_unknown_option
@@ -55,7 +55,7 @@ class FailureHandlingTest < AcceptanceTestCase
     _response, parsed = api_post('/launch/task', payload)
     assert parsed.key?('error'), 'Expected error for unknown option'
     assert parsed['error']['message'].include?('Invalid options'),
-           "Expected 'Invalid options' in error, got: #{parsed['error']['message']}"
+      "Expected 'Invalid options' in error, got: #{parsed['error']['message']}"
   end
 
   def test_empty_targets
@@ -68,7 +68,7 @@ class FailureHandlingTest < AcceptanceTestCase
     _response, parsed = api_post('/launch/task', payload)
     assert parsed.key?('error'), 'Expected error for empty targets'
     assert parsed['error']['message'].include?('empty'),
-           "Expected 'empty' in error, got: #{parsed['error']['message']}"
+      "Expected 'empty' in error, got: #{parsed['error']['message']}"
   end
 
   def test_invalid_json_body
@@ -79,7 +79,7 @@ class FailureHandlingTest < AcceptanceTestCase
     parsed = JSON.parse(response.body)
     assert parsed.key?('error'), 'Expected error for invalid JSON body'
     assert parsed['error']['message'].include?('Invalid JSON'),
-           "Expected 'Invalid JSON' in error, got: #{parsed['error']['message']}"
+      "Expected 'Invalid JSON' in error, got: #{parsed['error']['message']}"
   end
 
   def test_missing_required_fields
@@ -103,7 +103,7 @@ class FailureHandlingTest < AcceptanceTestCase
     _response, parsed = api_post('/launch/task', payload)
     assert parsed.key?('error'), 'Expected error for blank required parameter'
     assert parsed['error']['message'].include?('Missing required'),
-           "Expected 'Missing required' in error, got: #{parsed['error']['message']}"
+      "Expected 'Missing required' in error, got: #{parsed['error']['message']}"
   end
 
   def test_whitespace_only_targets_treated_as_empty
@@ -116,6 +116,6 @@ class FailureHandlingTest < AcceptanceTestCase
     _response, parsed = api_post('/launch/task', payload)
     assert parsed.key?('error'), 'Expected error for whitespace-only targets'
     assert parsed['error']['message'].include?('empty'),
-           "Expected 'empty' in error, got: #{parsed['error']['message']}"
+      "Expected 'empty' in error, got: #{parsed['error']['message']}"
   end
 end

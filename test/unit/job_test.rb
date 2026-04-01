@@ -65,8 +65,6 @@ class JobTest < SmartProxyOpenboltTestCase
     assert_equal 'success', result['status']
   end
 
-  private
-
   # Minimal Job subclass that returns a successful Result
   class TestableJob < Proxy::OpenBolt::Job
     def execute

@@ -2,7 +2,6 @@ require 'json'
 
 module Proxy::OpenBolt
   class Result
-
     attr_reader :command, :status, :value, :log, :message, :schema
 
     # Result from the OpenBolt CLI with --format json looks like:
@@ -38,27 +37,25 @@ module Proxy::OpenBolt
         @message = "Command unexpectedly exited with code #{exitcode}"
         @status = :exception
         @value = "stderr:\n#{stderr}\nstdout:\n#{stdout}"
+      elsif exitcode == 1 && !stdout.start_with?('{')
+        @value = stdout
+        @status = :failure
+        @log = stderr
       else
-        if exitcode == 1 && !stdout.start_with?('{')
-          @value = stdout
-          @status = :failure
+        begin
+          @value = JSON.parse(stdout)
+          @status = exitcode == 0 ? :success : :failure
           @log = stderr
-        else
-          begin
-            @value = JSON.parse(stdout)
-            @status = exitcode == 0 ? :success : :failure
-            @log = stderr
-          rescue JSON::ParserError => e
-            @status = :exception
-            @message = e.message
-            @value = e.inspect
-            @log = stderr
-          end
+        rescue JSON::ParserError => e
+          @status = :exception
+          @message = e.message
+          @value = e.inspect
+          @log = stderr
         end
       end
     end
 
-    def to_json
+    def to_json(*args)
       {
         'command' => @command,
         'status'  => @status,
@@ -66,7 +63,7 @@ module Proxy::OpenBolt
         'log'     => @log,
         'message' => @message,
         'schema'  => @schema,
-      }.to_json
+      }.to_json(*args)
     end
   end
 end

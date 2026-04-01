@@ -44,9 +44,9 @@ class AcceptanceTestCase < Test::Unit::TestCase
   def poll_job_status(job_id)
     response, parsed = api_get("/job/#{job_id}/status")
     assert response.is_a?(Net::HTTPSuccess),
-           "GET /job/#{job_id}/status returned #{response.code}: #{response.body}"
+      "GET /job/#{job_id}/status returned #{response.code}: #{response.body}"
     assert parsed.key?('status'),
-           "Expected 'status' key in response, got: #{parsed}"
+      "Expected 'status' key in response, got: #{parsed}"
     parsed['status']
   end
 
@@ -86,7 +86,7 @@ class AcceptanceTestCase < Test::Unit::TestCase
     }
     response, parsed = api_post('/launch/task', payload)
     assert response.is_a?(Net::HTTPSuccess),
-           "launch_task failed (#{response.code}): #{response.body}"
+      "launch_task failed (#{response.code}): #{response.body}"
     assert parsed.key?('id'), "Expected 'id' in launch response, got: #{parsed}"
     parsed['id']
   end
@@ -133,8 +133,8 @@ class AcceptanceTestCase < Test::Unit::TestCase
     require 'socket'
     TCPSocket.new(PROXY_HOST, PROXY_PORT).close
     @proxy_available = true
-  rescue SystemCallError, SocketError => error
-    @proxy_check_error = error
+  rescue SystemCallError, SocketError => e
+    @proxy_check_error = e
     @proxy_available = false
   end
 
@@ -180,10 +180,10 @@ class AcceptanceTestCase < Test::Unit::TestCase
 
   def parse_body(response)
     JSON.parse(response.body)
-  rescue JSON::ParserError => error
+  rescue JSON::ParserError => e
     flunk "Expected JSON response but got non-JSON body " \
           "(HTTP #{response.code} #{response.message}): " \
           "#{response.body.to_s.slice(0, 500)}\n" \
-          "Parse error: #{error.message}"
+          "Parse error: #{e.message}"
   end
 end

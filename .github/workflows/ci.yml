@@ -19,6 +19,17 @@ jobs:
     name: Ruby
     uses: theforeman/actions/.github/workflows/smart_proxy_plugin.yml@v0
 
+  rubocop:
+    name: RuboCop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      - run: bundle exec rake rubocop
+
   acceptance-ssh:
     name: Acceptance (SSH)
     runs-on: ubuntu-24.04
@@ -39,6 +50,7 @@ jobs:
   tests:
     needs:
       - test
+      - rubocop
       - acceptance-ssh
     runs-on: ubuntu-latest
     name: Test suite

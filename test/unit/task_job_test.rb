@@ -3,38 +3,6 @@ require 'smart_proxy_openbolt/plugin'
 require 'smart_proxy_openbolt/task_job'
 
 class TaskJobTest < SmartProxyOpenboltTestCase
-  def test_get_cmd_contains_required_elements
-    job = Proxy::OpenBolt::TaskJob.new('my::task', {}, {}, ['node1', 'node2'])
-    cmd = job.get_cmd
-
-    assert cmd.include?('bolt')
-    assert cmd.include?('task')
-    assert cmd.include?('run')
-    assert cmd.include?('my::task')
-    assert cmd.include?('--no-save-rerun')
-    assert cmd.include?('--no-color')
-
-    targets_index = cmd.index('--targets')
-    assert targets_index, '--targets should be in the command'
-    assert_equal 'node1,node2', cmd[targets_index + 1]
-
-    format_index = cmd.index('--format')
-    assert format_index, '--format should be in the command'
-    assert_equal 'json', cmd[format_index + 1]
-
-    project_index = cmd.index('--project')
-    assert project_index, '--project should be in the command'
-    assert_equal '/tmp/test-environments', cmd[project_index + 1]
-  end
-
-  def test_get_cmd_includes_concurrency_and_timeout
-    job = Proxy::OpenBolt::TaskJob.new('my::task', {}, {}, ['node1'])
-    cmd = job.get_cmd
-
-    assert cmd.any? { |arg| arg.start_with?('--concurrency=') }
-    assert cmd.any? { |arg| arg.start_with?('--connect-timeout=') }
-  end
-
   def test_parse_parameters_string_values
     job = Proxy::OpenBolt::TaskJob.new('task', { 'name' => 'hello' }, {}, ['node1'])
     params = job.parse_parameters

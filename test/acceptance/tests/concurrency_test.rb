@@ -12,18 +12,18 @@ class ConcurrencyTest < AcceptanceTestCase
     end
 
     statuses = wait_for_jobs(job_ids)
-    assert statuses.all? { |status| status == 'success' },
-           "Expected all jobs to succeed, got: #{statuses}"
+    assert statuses.all?('success'),
+      "Expected all jobs to succeed, got: #{statuses}"
 
     # Verify each job has its own distinct result
     job_ids.each_with_index do |job_id, index|
       _response, result = api_get("/job/#{job_id}/result")
       items = result['value']['items']
       assert_equal 2, items.length,
-                   "Job #{index + 1} should have results from both targets"
+        "Job #{index + 1} should have results from both targets"
       items.each do |item|
         assert_equal "concurrent-#{index + 1}", item['value']['message'],
-                     "Job #{index + 1} should have its own message"
+          "Job #{index + 1} should have its own message"
       end
     end
   end
@@ -55,7 +55,7 @@ class ConcurrencyTest < AcceptanceTestCase
     end
 
     assert_equal job_ids.uniq.length, job_ids.length,
-                 "All job IDs should be unique: #{job_ids}"
+      "All job IDs should be unique: #{job_ids}"
     wait_for_jobs(job_ids)
   end
 end
