@@ -35,15 +35,15 @@ module Proxy::OpenBolt
         result = execute
         update_status(result.status)
         store_result(result)
-      rescue Exception => execute_error
+      rescue Exception => e # rubocop:disable Lint/RescueException
         # Catch everything including non-StandardError exceptions (e.g.
         # ScriptError) so the job always gets a terminal status.
         update_status(:exception)
-        logger.error("Job #{@id} failed (#{execute_error.class}): #{execute_error.message}")
-        logger.debug(execute_error.backtrace.join("\n")) if execute_error.backtrace
+        logger.error("Job #{@id} failed (#{e.class}): #{e.message}")
+        logger.debug(e.backtrace.join("\n")) if e.backtrace
         begin
-          store_result({message: execute_error.full_message, backtrace: execute_error.backtrace})
-        rescue => store_error
+          store_result({ message: e.full_message, backtrace: e.backtrace })
+        rescue StandardError => store_error
           logger.error("Job #{@id}: failed to store error result: #{store_error.message}")
           logger.debug(store_error.backtrace.join("\n")) if store_error.backtrace
         end
@@ -55,7 +55,7 @@ module Proxy::OpenBolt
     end
 
     def store_result(value)
-      File.open(Proxy::OpenBolt.result_file_path(@id), 'w') { |f| f.write(value.to_json) }
+      File.write(Proxy::OpenBolt.result_file_path(@id), value.to_json)
     end
 
     # Read the result back from disk as a raw JSON string. We avoid parsing

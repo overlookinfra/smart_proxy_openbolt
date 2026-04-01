@@ -15,7 +15,16 @@ module Proxy::OpenBolt
     end
 
     def execute
-      command = get_cmd
+      command = ['bolt', 'task', 'run', @name,
+                 '--targets', @targets.join(','),
+                 '--no-save-rerun',
+                 "--concurrency=#{Plugin.settings.concurrency}",
+                 "--connect-timeout=#{Plugin.settings.connect_timeout}",
+                 '--project', Plugin.settings.environment_path,
+                 '--format', 'json',
+                 '--no-color']
+      command.concat(parse_options)
+      command.concat(parse_parameters)
       stdout, stderr, exitcode = Proxy::OpenBolt.openbolt(command)
       Result.new(
         Proxy::OpenBolt.scrub(@options, command.join(' ')),
@@ -25,30 +34,11 @@ module Proxy::OpenBolt
       )
     end
 
-    def get_cmd
-      cmd = ['bolt', 'task', 'run', @name,
-             '--targets', @targets.join(','),
-             '--no-save-rerun',
-             "--concurrency=#{Plugin.settings.concurrency}",
-             "--connect-timeout=#{Plugin.settings.connect_timeout}",
-             '--project', Plugin.settings.environment_path,
-             '--format', 'json',
-             '--no-color']
-      cmd.concat(parse_options)
-      cmd.concat(parse_parameters)
-      cmd
-    end
-
     def parse_parameters
-      params = []
-      @parameters.each do |key, value|
-        if value.is_a?(Array) || value.is_a?(Hash)
-          params << "#{key}=#{value.to_json}"
-        else
-          params << "#{key}=#{value}"
-        end
+      @parameters.map do |key, value|
+        formatted = value.is_a?(Array) || value.is_a?(Hash) ? value.to_json : value
+        "#{key}=#{formatted}"
       end
-      params
     end
 
     def parse_options

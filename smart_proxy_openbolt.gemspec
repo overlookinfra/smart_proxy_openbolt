@@ -1,4 +1,4 @@
-require File.expand_path('../lib/smart_proxy_openbolt/version', __FILE__)
+require File.expand_path('lib/smart_proxy_openbolt/version', __dir__)
 
 Gem::Specification.new do |s|
   s.name = 'smart_proxy_openbolt'
@@ -20,4 +20,5 @@ Gem::Specification.new do |s|
   # on Debian/Ubuntu, they rely on the upstream packages, and debian.org packages 1.1.6 on bookworm, that's the oldest supported distro/version right now
   # https://packages.debian.org/bookworm/ruby-concurrent
   s.add_dependency 'concurrent-ruby', '>= 1.1.6', '< 2'
+  s.metadata['rubygems_mfa_required'] = 'true'
 end

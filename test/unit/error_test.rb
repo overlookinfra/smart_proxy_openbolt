@@ -31,16 +31,14 @@ class ErrorTest < SmartProxyOpenboltTestCase
   end
 
   def test_to_json_serializes_exception
-    begin
-      raise RuntimeError, 'inner error'
-    rescue RuntimeError => inner
-      error = Proxy::OpenBolt::Error.new(message: 'wrapper', exception: inner)
-      parsed = JSON.parse(error.to_json)
+    inner = RuntimeError.new('inner error')
+    inner.set_backtrace(caller)
+    error = Proxy::OpenBolt::Error.new(message: 'wrapper', exception: inner)
+    parsed = JSON.parse(error.to_json)
 
-      assert_equal 'RuntimeError', parsed['error']['exception']['class']
-      assert_equal 'inner error', parsed['error']['exception']['message']
-      assert parsed['error']['exception']['backtrace'].is_a?(Array)
-    end
+    assert_equal 'RuntimeError', parsed['error']['exception']['class']
+    assert_equal 'inner error', parsed['error']['exception']['message']
+    assert parsed['error']['exception']['backtrace'].is_a?(Array)
   end
 
   def test_details_hash_accessible

@@ -69,7 +69,7 @@ class TaskDiscoveryTest < AcceptanceTestCase
     _response, reloaded = api_get('/tasks/reload')
 
     assert_equal tasks.keys.sort, reloaded.keys.sort,
-                 'Reloaded tasks should have the same task names'
+      'Reloaded tasks should have the same task names'
   end
 
   def test_tasks_options_returns_openbolt_options
@@ -96,12 +96,12 @@ class TaskDiscoveryTest < AcceptanceTestCase
     _response, options = api_get('/tasks/options')
 
     assert_equal true, options['password']['sensitive'],
-                 'password should be marked sensitive'
+      'password should be marked sensitive'
     assert_equal true, options['sudo-password']['sensitive'],
-                 'sudo-password should be marked sensitive'
+      'sudo-password should be marked sensitive'
     assert_equal false, options['user']['sensitive'],
-                 'user should not be marked sensitive'
+      'user should not be marked sensitive'
     assert_equal false, options['verbose']['sensitive'],
-                 'verbose should not be marked sensitive'
+      'verbose should not be marked sensitive'
   end
 end

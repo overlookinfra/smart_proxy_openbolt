@@ -78,9 +78,9 @@ class ExecutionTest < AcceptanceTestCase
     items = result['value']['items']
     items.each do |item|
       assert_nil item['value']['optional_string'],
-                 'Omitted optional parameter should be nil'
+        'Omitted optional parameter should be nil'
       assert_equal 'default_value', item['value']['with_default'],
-                   'Parameter with default should receive the default value'
+        'Parameter with default should receive the default value'
     end
   end
 
@@ -102,7 +102,7 @@ class ExecutionTest < AcceptanceTestCase
     items = result['value']['items']
     items.each do |item|
       assert_equal({ 'key1' => 'value1', 'key2' => 42 }, item['value']['hash_param'],
-                   'Hash parameter should round-trip correctly')
+        'Hash parameter should round-trip correctly')
     end
   end
 
@@ -119,7 +119,7 @@ class ExecutionTest < AcceptanceTestCase
     _response, result = api_get("/job/#{job_id}/result")
     items = result['value']['items']
     assert_equal 2, items.length,
-                 'Comma-separated targets should produce results from both targets'
+      'Comma-separated targets should produce results from both targets'
   end
 
   def test_mixed_success_and_failure_per_target
