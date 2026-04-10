@@ -28,7 +28,7 @@ jobs:
         with:
           ruby-version: '3.2'
           bundler-cache: true
-      - run: bundle exec rake rubocop
+      - run: bundle exec rubocop
 
   acceptance-ssh:
     name: Acceptance (SSH)
@@ -40,12 +40,12 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
       - name: Start proxy and SSH targets
-        run: bundle exec rake test:acceptance:ssh:up
+        run: bundle exec rake acceptance:ssh:up
       - name: Run SSH acceptance tests
-        run: bundle exec rake test:acceptance:ssh
+        run: bundle exec rake acceptance:ssh
       - name: Stop containers
         if: always()
-        run: bundle exec rake test:acceptance:ssh:down
+        run: bundle exec rake acceptance:ssh:down
 
   tests:
     needs:

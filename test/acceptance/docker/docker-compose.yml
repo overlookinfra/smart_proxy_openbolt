@@ -3,6 +3,7 @@ services:
     container_name: openbolt-proxy
     hostname: openbolt-proxy
     image: openbolt-proxy
+    pull_policy: never
     platform: linux/amd64
     build:
       context: .
@@ -30,6 +31,7 @@ services:
     container_name: openbolt-target1
     hostname: openbolt-target1
     image: openbolt-target
+    pull_policy: never
     build:
       context: .
       dockerfile: target/Dockerfile
@@ -40,5 +42,6 @@ services:
     container_name: openbolt-target2
     hostname: openbolt-target2
     image: openbolt-target
+    pull_policy: never
     volumes:
       - ../fixtures/keys/id_rsa.pub:/tmp/id_rsa.pub:ro
