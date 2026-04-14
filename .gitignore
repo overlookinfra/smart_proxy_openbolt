@@ -8,6 +8,8 @@
 /Gemfile.lock
 /.bundle
 /logs
+.ruby-version
+/pkg/
 # Generated at runtime by acceptance tests
 /test/acceptance/fixtures/keys/
 /test/acceptance/docker/ssl-export/
