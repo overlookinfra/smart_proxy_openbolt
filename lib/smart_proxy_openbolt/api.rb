@@ -9,13 +9,8 @@ module Proxy::OpenBolt
     include ::Proxy::Log
 
     helpers ::Proxy::Helpers
-
-    # Require authentication
-    # These require foreman-proxy to be able to read Puppet's certs/CA, which
-    # by default are owned by puppet:puppet. Need to have installation figure out
-    # the best way to open them to foreman-proxy if we want to use this, I think.
-    # authorize_with_trusted_hosts
-    # authorize_with_ssl_client
+    authorize_with_trusted_hosts
+    authorize_with_ssl_client
 
     # Call reload_tasks at class load so the first call to /tasks
     # is potentially faster (if called after this finishes). Do it

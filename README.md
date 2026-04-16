@@ -80,6 +80,41 @@ The plugin mounts its API at `/openbolt` on the Smart Proxy. All endpoints are u
 | `GET` | `/openbolt/job/:id/result` | Get the full result of a completed job |
 | `DELETE` | `/openbolt/job/:id/artifacts` | Delete stored result files for a job |
 
+## Authentication
+
+The OpenBolt API is HTTPS-only and requires SSL client certificate authentication.
+The smart proxy verifies that:
+
+1. The client presents a valid SSL certificate signed by the same CA configured
+   in `ssl_ca_file` in `/etc/foreman-proxy/settings.yml`.
+2. The certificate's CN appears in the `trusted_hosts` list in that same file.
+
+In a standard Foreman installation, the Foreman server's certificate is already
+trusted by the smart proxy, so no additional configuration is needed for
+Foreman-to-proxy communication.
+
+### Direct API access
+
+If you want to hit the smart proxy OpenBolt API directly from the Foreman host
+(for debugging, scripting, etc.), you can reuse Foreman's own client
+certificates since they are already trusted by the proxy:
+
+```bash
+curl -s \
+  --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
+  --cert /etc/puppetlabs/puppet/ssl/certs/$(hostname -f).pem \
+  --key /etc/puppetlabs/puppet/ssl/private_keys/$(hostname -f).pem \
+  https://$(hostname -f):8443/openbolt/tasks
+```
+
+The Foreman server's CN should already be in `trusted_hosts` in the smart
+proxy's `/etc/foreman-proxy/settings.yml`. If not, add it:
+
+```yaml
+:trusted_hosts:
+  - foreman.example.com
+```
+
 ## Development
 
 ### Unit Tests
