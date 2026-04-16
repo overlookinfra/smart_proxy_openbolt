@@ -6,12 +6,79 @@
 [![RubyGem Version](https://img.shields.io/gem/v/smart_proxy_openbolt.svg)](https://rubygems.org/gems/smart_proxy_openbolt)
 [![RubyGem Downloads](https://img.shields.io/gem/dt/smart_proxy_openbolt.svg)](https://rubygems.org/gems/smart_proxy_openbolt)
 
-This plug-in adds support for OpenBolt to Foreman's Smart Proxy.
+This plugin adds [OpenBolt](https://github.com/OpenVoxProject/openbolt) support to [Foreman's Smart Proxy](https://github.com/theforeman/smart-proxy).
+It exposes an HTTP API that the [foreman_openbolt](https://github.com/overlookinfra/foreman_openbolt) plugin uses to run Tasks and Plans on remote targets via the OpenBolt CLI.
+
+## Introduction
+
+[OpenBolt](https://github.com/OpenVoxProject/openbolt) is the open source successor of [Bolt](https://github.com/puppetlabs/bolt) by [Perforce](https://www.perforce.com/).
+It runs Tasks and Plans against remote targets over SSH, WinRM, or other transports.
+
+This smart proxy plugin wraps the OpenBolt CLI and provides:
+
+* A REST API for listing available tasks, launching task runs, and retrieving results
+* Concurrent job execution via a configurable thread pool
+* Disk-based result storage so results survive proxy restarts
+* Transport option forwarding (SSH, WinRM) from the Foreman UI
+
+The Foreman UI talks to this plugin; it does not invoke OpenBolt directly. See the [foreman_openbolt README](https://github.com/overlookinfra/foreman_openbolt) for screenshots and the full user-facing workflow.
+
+## Installation
+
+See [How to Install a Plugin](https://theforeman.org/plugins/#2.Installation) for general Foreman plugin installation instructions.
+The [theforeman/foreman_proxy](https://github.com/theforeman/puppet-foreman_proxy/blob/master/manifests/plugin/openbolt.pp) Puppet module supports automated installation.
+
+You need `bolt` in your `$PATH` on the Smart Proxy host.
+OpenBolt packages are available at [yum.voxpupuli.org](https://yum.voxpupuli.org/) and [apt.voxpupuli.org](https://apt.voxpupuli.org/) in the openvox8 repo.
+You can also use the legacy Bolt packages from Perforce from the `puppet-tools` repo on [apt.puppet.com](https://apt.puppet.com/) or [yum.puppet.com](https://yum.puppet.com/).
+
+OpenBolt relies on Tasks and Plans distributed as Puppet modules.
+Deploy your code with [r10k](https://github.com/puppetlabs/r10k) or [g10k](https://github.com/xorpaul/g10k), as you do on your compilers.
+A handful of core Tasks and Plans are also included in the [OpenBolt packages](https://github.com/OpenVoxProject/openbolt/blob/main/Puppetfile).
+
+The integration is supported on Foreman 3.17 and all following versions, including development/nightly builds.
 
 ## Things to be aware of
 
 * Any SSH keys to be used should be readable by the foreman-proxy user.
-* Results are currently stored on disk at /var/logs/foreman-proxy/openbolt by default (configurable in settings). Fetching old results is possible as long as the files stay on disk.
+* Results are stored on disk at `/var/log/foreman-proxy/openbolt` by default (configurable via `log_dir`). Fetching old results is possible as long as the files remain on disk.
+
+## Configuration
+
+The plugin is configured in `settings.d/openbolt.yml` on the Smart Proxy host. All settings have sensible defaults:
+
+```yaml
+---
+:enabled: https
+:environment_path: /etc/puppetlabs/code/environments/production
+:workers: 20
+:concurrency: 100
+:connect_timeout: 30
+:log_dir: /var/log/foreman-proxy/openbolt
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `https` | Enable the plugin (`https`, `http`, or `false`) |
+| `environment_path` | `/etc/puppetlabs/code/environments/production` | Path to the Puppet environment containing Tasks and Plans |
+| `workers` | `20` | Number of threads in the job executor pool |
+| `concurrency` | `100` | Maximum number of concurrent target connections per job |
+| `connect_timeout` | `30` | Connection timeout in seconds for target connections |
+| `log_dir` | `/var/log/foreman-proxy/openbolt` | Directory for job result files (created automatically if missing) |
+
+## API
+
+The plugin mounts its API at `/openbolt` on the Smart Proxy. All endpoints are used by the Foreman plugin and are not intended for direct use, but can be useful for debugging.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/openbolt/tasks` | List available tasks from the configured environment |
+| `GET` | `/openbolt/tasks/reload` | Clear the task cache and reload from disk |
+| `GET` | `/openbolt/tasks/options` | Get available transport options (SSH, WinRM) |
+| `POST` | `/openbolt/launch/task` | Launch a task run against specified targets |
+| `GET` | `/openbolt/job/:id/status` | Get the status of a running or completed job |
+| `GET` | `/openbolt/job/:id/result` | Get the full result of a completed job |
+| `DELETE` | `/openbolt/job/:id/artifacts` | Delete stored result files for a job |
 
 ## Development
 
@@ -47,11 +114,99 @@ bundle exec rake build:deb   # Build DEB
 | `FOREMAN_PACKAGING_REPO` | `https://github.com/theforeman/foreman-packaging.git` | Git URL for foreman-packaging |
 | `FOREMAN_VERSION` | `3.18` | Foreman version for package builds |
 
-## How to release
+## Contributing and support
 
-* bump version in `lib/smart_proxy_openbolt/version.rb`
-* run `CHANGELOG_GITHUB_TOKEN=github_pat... bundle exec rake changelog`
-* create a PR
-* get a review & merge
-* create and push a tag
-* github actions will publish the tag
+Fork and send a Pull Request. Thanks!
+If you have questions or need professional support, please join the `#sig-orchestrator` channel on the [Vox Pupuli Slack](https://voxpupuli.org/connect/).
+
+## Copyright
+
+Copyright (c) 2025 Overlook InfraTech
+
+Copyright (c) 2025 betadots GmbH
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+## How to Release
+
+### Release steps
+
+1. Bump the version in `lib/smart_proxy_openbolt/version.rb`
+2. Generate the changelog:
+   ```bash
+   CHANGELOG_GITHUB_TOKEN=github_pat_... bundle exec rake changelog
+   ```
+3. Create a PR with the version bump and changelog, get it reviewed and merged
+4. Create and push a tag matching the version:
+   ```bash
+   git tag 0.2.0
+   git push origin 0.2.0
+   ```
+5. The [release workflow](.github/workflows/release.yml) runs automatically on tag push and:
+   - Builds the gem
+   - Creates a GitHub Release with auto-generated notes and the gem attached
+   - Publishes the gem to GitHub Packages
+   - Publishes the gem to RubyGems.org (requires the `release` environment)
+   - Verifies the gem is available on RubyGems.org
+
+### RPM/DEB packaging
+
+After the gem is published to RubyGems, both RPM and DEB packages need to be updated in [theforeman/foreman-packaging](https://github.com/theforeman/foreman-packaging).
+
+A bot automatically creates PRs against the `rpm/develop` and `deb/develop` branches to pick up the new gem version. These PRs build packages for Foreman nightly.
+
+For stable Foreman releases (currently 3.17 and 3.18), cherry-pick the packaging commits from the develop branches into the corresponding stable branches. For each stable version you want to support:
+
+```bash
+cd foreman-packaging
+
+# RPM: cherry-pick from rpm/develop into a branch off the stable target
+git checkout rpm/3.18
+git checkout -b cherry-pick/rubygem-smart_proxy_openbolt-rpm-3.18
+git cherry-pick <commit-from-rpm/develop>
+# Push to your fork and open a PR targeting rpm/3.18
+
+# DEB: same approach for the deb side
+git checkout deb/3.18
+git checkout -b cherry-pick/rubygem-smart_proxy_openbolt-deb-3.18
+git cherry-pick <commit-from-deb/develop>
+# Push to your fork and open a PR targeting deb/3.18
+```
+
+PRs against stable branches should be labeled "Stable branch".
+
+**Alternative: manual version bump**
+
+If the cherry-pick doesn't apply cleanly, you can bump the version manually on the stable branch instead.
+
+*RPM:* Checkout the target branch and run `bump_rpm.sh`:
+```bash
+cd foreman-packaging
+git checkout rpm/3.18
+git checkout -b bump_rpm/rubygem-smart_proxy_openbolt
+./bump_rpm.sh packages/plugins/rubygem-smart_proxy_openbolt
+# Review changes, push to your fork, and open a PR targeting rpm/3.18
+```
+
+*DEB:* Checkout the target branch and update these files:
+- `debian/gem.list` -- new gem filename
+- `smart_proxy_openbolt.rb` -- new version
+- `debian/control` -- dependency versions (if changed)
+- `debian/changelog` -- add a new entry
+
+```bash
+git checkout deb/3.18
+git checkout -b bump_deb/ruby-smart-proxy-openbolt
+# Make the changes above, push to your fork, and open a PR targeting deb/3.18
+```
