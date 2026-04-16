@@ -23,7 +23,11 @@ services:
       - target1
       - target2
     healthcheck:
-      test: ["CMD", "curl", "-sfk", "https://localhost:8443/openbolt/tasks"]
+      test: ["CMD", "curl", "-sf",
+        "--cacert", "/etc/foreman-proxy/ssl/ca.pem",
+        "--cert", "/etc/foreman-proxy/ssl/client.pem",
+        "--key", "/etc/foreman-proxy/ssl/client-key.pem",
+        "https://localhost:8443/openbolt/tasks"]
       interval: 5s
       timeout: 10s
       retries: 12

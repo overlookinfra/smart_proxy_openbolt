@@ -74,6 +74,8 @@ cat > /etc/foreman-proxy/settings.yml <<EOF
 :ssl_certificate: ${SSL_DIR}/server.pem
 :ssl_ca_file: ${SSL_DIR}/ca.pem
 :ssl_private_key: ${SSL_DIR}/server-key.pem
+:trusted_hosts:
+  - acceptance-test-client
 :https_port: 8443
 :bind_host:
   - '*'
