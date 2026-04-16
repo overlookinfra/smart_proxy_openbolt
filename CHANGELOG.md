@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.0](https://github.com/overlookinfra/smart_proxy_openbolt/tree/1.1.0) (2026-04-16)
+
+[Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/0.1.1...1.1.0)
+
+**Merged pull requests:**
+
+- Enable SSL auth [\#41](https://github.com/overlookinfra/smart_proxy_openbolt/pull/41) ([nmburgan](https://github.com/nmburgan))
+- Update README with lots of details [\#40](https://github.com/overlookinfra/smart_proxy_openbolt/pull/40) ([nmburgan](https://github.com/nmburgan))
+- Add build tasks and restructure Rakefile into rakelib [\#39](https://github.com/overlookinfra/smart_proxy_openbolt/pull/39) ([nmburgan](https://github.com/nmburgan))
+- Add RuboCop and associated fixes [\#38](https://github.com/overlookinfra/smart_proxy_openbolt/pull/38) ([nmburgan](https://github.com/nmburgan))
+- Update rubocop requirement from ~\> 1.28.0 to ~\> 1.86.0 [\#37](https://github.com/overlookinfra/smart_proxy_openbolt/pull/37) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Add acceptance tests [\#36](https://github.com/overlookinfra/smart_proxy_openbolt/pull/36) ([nmburgan](https://github.com/nmburgan))
+- Lots of cleanup and improvements [\#35](https://github.com/overlookinfra/smart_proxy_openbolt/pull/35) ([nmburgan](https://github.com/nmburgan))
+- Update github\_changelog\_generator requirement from ~\> 1.16.4 to ~\> 1.18 [\#34](https://github.com/overlookinfra/smart_proxy_openbolt/pull/34) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Update mocha requirement from ~\> 2 to ~\> 3 [\#23](https://github.com/overlookinfra/smart_proxy_openbolt/pull/23) ([dependabot[bot]](https://github.com/apps/dependabot))
+- config file: Add header [\#20](https://github.com/overlookinfra/smart_proxy_openbolt/pull/20) ([bastelfreak](https://github.com/bastelfreak))
+
 ## [0.1.1](https://github.com/overlookinfra/smart_proxy_openbolt/tree/0.1.1) (2025-11-25)
 
 [Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/0.1.0...0.1.1)
