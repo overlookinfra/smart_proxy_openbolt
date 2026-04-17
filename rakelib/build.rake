@@ -9,16 +9,18 @@ FOREMAN_PACKAGING_REPO = ENV.fetch('FOREMAN_PACKAGING_REPO', 'https://github.com
 GEMSPEC = 'smart_proxy_openbolt.gemspec'
 GEM_FILENAME = "smart_proxy_openbolt-#{Gem::Specification.load(GEMSPEC).version}.gem".freeze
 
-def foreman_packaging_path(foreman_version)
-  @foreman_packaging_path ||= begin
-    branch = "rpm/#{foreman_version}"
-    dir = File.join(Dir.tmpdir, "foreman-packaging-#{foreman_version}")
+def foreman_packaging_path(foreman_version, branch_prefix: 'rpm')
+  @foreman_packaging_paths ||= {}
+  key = "#{branch_prefix}-#{foreman_version}"
+  @foreman_packaging_paths[key] ||= begin
+    branch = "#{branch_prefix}/#{foreman_version}"
+    dir = File.join(Dir.tmpdir, "foreman-packaging-#{key}")
     if File.directory?(dir)
-      puts "Updating foreman-packaging (#{foreman_version})...".magenta
+      puts "Updating foreman-packaging (#{branch})...".magenta
       Shell.run(['git', '-C', dir, 'fetch', '--depth', '1', 'origin', branch])
       Shell.run(['git', '-C', dir, 'reset', '--hard', 'FETCH_HEAD'])
     else
-      puts "Cloning foreman-packaging (#{foreman_version})...".magenta
+      puts "Cloning foreman-packaging (#{branch})...".magenta
       Shell.run(['git', 'clone', '--depth', '1', '--branch', branch,
                  FOREMAN_PACKAGING_REPO, dir])
     end
@@ -27,7 +29,7 @@ def foreman_packaging_path(foreman_version)
 end
 
 def build_rpm_builder_image(foreman_version)
-  image_name = "foreman-rpm-builder:#{foreman_version}"
+  image_name = "smart-proxy-openbolt-rpm-builder:#{foreman_version}"
   return image_name if Container.image_exists?(image_name)
 
   puts "Building RPM builder image for Foreman #{foreman_version}...".magenta
@@ -50,7 +52,7 @@ def build_rpm_builder_image(foreman_version)
 end
 
 def build_deb_builder_image(foreman_version)
-  image_name = "foreman-deb-builder:#{foreman_version}"
+  image_name = "smart-proxy-openbolt-deb-builder:#{foreman_version}"
   return image_name if Container.image_exists?(image_name)
 
   puts "Building DEB builder image for Foreman #{foreman_version}...".magenta
@@ -69,7 +71,7 @@ def build_deb_builder_image(foreman_version)
       wget -qO- https://deb.theforeman.org/foreman.asc | gpg --dearmor \
         > /etc/apt/trusted.gpg.d/foreman.gpg
       apt-get update
-      apt-get install -y gem2deb debhelper ruby ruby-dev
+      apt-get install -y gem2deb debhelper rake ruby ruby-dev ruby-concurrent
     BASH
   end
 end
@@ -101,7 +103,9 @@ namespace :build do
       platform: 'linux/amd64'
     )
 
-    puts "RPM built: #{Dir.glob('pkg/rubygem-smart_proxy_openbolt-*.rpm').first}".green
+    rpm = Dir.glob('pkg/rubygem-smart_proxy_openbolt-*.rpm').first
+    abort 'RPM build produced no output file in pkg/'.red unless rpm
+    puts "RPM built: #{rpm}".green
   end
 
   desc 'Build DEB using Debian container'
@@ -114,13 +118,15 @@ namespace :build do
         mkdir -p /build-deb/cache
         cp /build/pkg/#{GEM_FILENAME} /build-deb/cache/
         cd /build-deb
-        gem2deb --gem-install /build-deb/cache/#{GEM_FILENAME}
-        cp /build-deb/*.deb /build/pkg/
+        gem2deb /build-deb/cache/#{GEM_FILENAME}
+        find / -name 'ruby-smart-proxy-openbolt*.deb' -exec cp {} /build/pkg/ \\;
       BASH
       volumes: { Dir.pwd => '/build' },
       platform: 'linux/amd64'
     )
 
-    puts "DEB built: #{Dir.glob('pkg/ruby-smart-proxy-openbolt*.deb').first}".green
+    deb = Dir.glob('pkg/ruby-smart-proxy-openbolt*.deb').first
+    abort 'DEB build produced no output file in pkg/'.red unless deb
+    puts "DEB built: #{deb}".green
   end
 end
