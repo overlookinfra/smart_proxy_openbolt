@@ -7,7 +7,7 @@ module Proxy::OpenBolt
   extend ::Proxy::Util
   extend ::Proxy::Log
 
-  TRANSPORTS = ['ssh', 'winrm'].freeze
+  TRANSPORTS = ['ssh', 'winrm', 'choria'].freeze
   # The key should be exactly the flag name passed to OpenBolt
   # Type must be :boolean, :string, or an array of acceptable string values
   # Transport must be an array of transport types it applies to. This is
@@ -25,25 +25,25 @@ module Proxy::OpenBolt
     },
     'log-level' => {
       :type => ['error', 'warning', 'info', 'debug', 'trace'],
-      :transport => ['ssh', 'winrm'],
+      :transport => ['ssh', 'winrm', 'choria'],
       :sensitive => false,
       :description => 'Set the log level during OpenBolt execution.',
     },
     'verbose' => {
       :type => :boolean,
-      :transport => ['ssh', 'winrm'],
+      :transport => ['ssh', 'winrm', 'choria'],
       :sensitive => false,
       :description => 'Run the OpenBolt command with the --verbose flag. This prints additional information during OpenBolt execution and will print any out::verbose plan statements.',
     },
     'noop' => {
       :type => :boolean,
-      :transport => ['ssh', 'winrm'],
+      :transport => ['ssh', 'winrm', 'choria'],
       :sensitive => false,
       :description => 'Run the OpenBolt command with the --noop flag, which will make no changes to the target host.',
     },
     'tmpdir' => {
       :type => :string,
-      :transport => ['ssh', 'winrm'],
+      :transport => ['ssh', 'winrm', 'choria'],
       :sensitive => false,
       :description => 'Directory to use for temporary files on target hosts during OpenBolt execution.',
     },
@@ -94,6 +94,78 @@ module Proxy::OpenBolt
       :transport => ['winrm'],
       :sensitive => false,
       :description => 'Verify remote host SSL certificate when connecting to hosts via WinRM.',
+    },
+    'choria-task-agent' => {
+      :type => ['bolt_tasks', 'shell'],
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Choria agent used to execute tasks on target nodes. "bolt_tasks" runs tasks via the Choria bolt_tasks agent and "shell" runs them via the shell agent. Defaults to "bolt_tasks" when not specified.',
+    },
+    'choria-config-file' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Path on the smart proxy host to the Choria client configuration file. This file must be readable by the foreman-proxy user.',
+    },
+    'choria-ssl-ca' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Path on the smart proxy host to the CA certificate used to verify Choria brokers and peers. This file must be readable by the foreman-proxy user. Must be provided together with choria-ssl-cert and choria-ssl-key.',
+    },
+    'choria-ssl-cert' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Path on the smart proxy host to the client SSL certificate used to authenticate with Choria. This file must be readable by the foreman-proxy user. Must be provided together with choria-ssl-ca and choria-ssl-key.',
+    },
+    'choria-ssl-key' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Path on the smart proxy host to the client SSL private key used to authenticate with Choria. This key must be readable by the foreman-proxy user. Must be provided together with choria-ssl-ca and choria-ssl-cert.',
+    },
+    'choria-collective' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Choria collective to route messages through.',
+    },
+    'choria-puppet-environment' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Puppet environment reported to the Choria agent when executing tasks. Defaults to "production" when not specified. Typically matches the proxy\'s environment_path setting.',
+    },
+    'choria-rpc-timeout' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Timeout in seconds for individual Choria RPC calls. Defaults to 30 when not specified.',
+    },
+    'choria-task-timeout' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Timeout in seconds for a Choria task to complete on a target node. Defaults to 300 when not specified.',
+    },
+    'choria-command-timeout' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Timeout in seconds for a Choria shell command to complete on a target node. Defaults to 60 when not specified.',
+    },
+    'nats-servers' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Comma-separated list of NATS server URIs the Choria client should connect to (e.g. nats://broker1:4222,nats://broker2:4222).',
+    },
+    'nats-connection-timeout' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Timeout in seconds for establishing a connection to a NATS server.',
     },
   }.freeze
   SORTED_OPTIONS = OPENBOLT_OPTIONS.sort.to_h.freeze
@@ -241,7 +313,7 @@ module Proxy::OpenBolt
       # Normalize options, removing blank values
       options = normalize_values(options)
       logger.info("Normalized options: #{scrub(options, options.inspect)}")
-      OPENBOLT_OPTIONS.each { |key, value| options[key] ||= value[:default] if value.key?(:default) }
+      OPENBOLT_OPTIONS.each { |key, meta| options[key] ||= meta[:default] if meta.key?(:default) }
       logger.info("Options with required defaults: #{scrub(options, options.inspect)}")
 
       # Validate option types

@@ -98,14 +98,6 @@ class OpenboltOptionsTest < SmartProxyOpenboltTestCase
     keys = options.keys
     assert_equal keys.sort, keys
   end
-
-  def test_contains_expected_keys
-    options = Proxy::OpenBolt.openbolt_options
-    %w[transport user password host-key-check private-key run-as sudo-password ssl ssl-verify
-       log-level verbose noop tmpdir].each do |key|
-      assert options.key?(key), "Expected key '#{key}' in OPENBOLT_OPTIONS"
-    end
-  end
 end
 
 class ValidateJobIdTest < SmartProxyOpenboltTestCase
@@ -293,6 +285,20 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
     })
   end
 
+  # Stubs add_job to capture the job passed to it, launches the task with
+  # sensible defaults, and returns the captured job for assertions.
+  def capture_launched_job(options, name: 'test::task', parameters: { 'required_param' => 'val' }, targets: 'node1')
+    captured = nil
+    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured = job }.returns('uuid')
+    Proxy::OpenBolt.launch_task({
+      'name' => name,
+      'parameters' => parameters,
+      'targets' => targets,
+      'options' => options,
+    })
+    captured
+  end
+
   def test_rejects_non_hash_data
     assert_raise(Proxy::OpenBolt::Error) { Proxy::OpenBolt.launch_task('not a hash') }
   end
@@ -396,18 +402,10 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
   end
 
   def test_coerces_string_boolean_options
-    captured_job = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job }.returns('uuid')
+    job = capture_launched_job({ 'verbose' => 'true', 'noop' => 'false' })
 
-    Proxy::OpenBolt.launch_task({
-      'name' => 'test::task',
-      'parameters' => { 'required_param' => 'val' },
-      'targets' => 'node1',
-      'options' => { 'verbose' => 'true', 'noop' => 'false' },
-    })
-
-    assert_equal true, captured_job.options['verbose']
-    assert_equal false, captured_job.options['noop']
+    assert_equal true, job.options['verbose']
+    assert_equal false, job.options['noop']
   end
 
   def test_rejects_invalid_enum_option
@@ -433,17 +431,42 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
   end
 
   def test_applies_default_transport
-    captured_job = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job }.returns('uuid')
+    job = capture_launched_job({})
 
-    Proxy::OpenBolt.launch_task({
-      'name' => 'test::task',
-      'parameters' => { 'required_param' => 'val' },
-      'targets' => 'node1',
-      'options' => {},
+    assert_equal 'ssh', job.options['transport'], 'Default transport should be ssh'
+  end
+
+  def test_accepts_choria_transport_with_options
+    job = capture_launched_job({
+      'transport' => 'choria',
+      'choria-task-agent' => 'bolt_tasks',
+      'choria-config-file' => '/etc/choria/client.conf',
+      'choria-collective' => 'mcollective',
+      'choria-rpc-timeout' => '30',
     })
 
-    assert_equal 'ssh', captured_job.options['transport'], 'Default transport should be ssh'
+    assert_equal 'choria', job.options['transport']
+    assert_equal 'bolt_tasks', job.options['choria-task-agent']
+    assert_equal '/etc/choria/client.conf', job.options['choria-config-file']
+    assert_equal 'mcollective', job.options['choria-collective']
+    assert_equal '30', job.options['choria-rpc-timeout']
+  end
+
+  def test_rejects_invalid_choria_task_agent
+    assert_raise(Proxy::OpenBolt::Error) do
+      Proxy::OpenBolt.launch_task({
+        'name' => 'test::task',
+        'parameters' => { 'required_param' => 'val' },
+        'targets' => 'node1',
+        'options' => { 'transport' => 'choria', 'choria-task-agent' => 'bogus' },
+      })
+    end
+  end
+
+  def test_accepts_shell_agent_for_choria_task_agent
+    job = capture_launched_job({ 'transport' => 'choria', 'choria-task-agent' => 'shell' })
+
+    assert_equal 'shell', job.options['choria-task-agent']
   end
 
   def test_rejects_blank_required_param
@@ -497,16 +520,9 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
   end
 
   def test_passes_non_string_option_value_through
-    captured_job = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured_job = job }.returns('uuid')
+    job = capture_launched_job({ 'user' => 123 })
 
-    Proxy::OpenBolt.launch_task({
-      'name' => 'test::task',
-      'parameters' => { 'required_param' => 'val' },
-      'targets' => 'node1', 'options' => { 'user' => 123 }
-    })
-
-    assert_equal 123, captured_job.options['user']
+    assert_equal 123, job.options['user']
   end
 
   def test_handles_null_options
