@@ -414,6 +414,10 @@ module Proxy::OpenBolt
     # process is killed by a signal (exitstatus is nil).
     def openbolt(command)
       env = { 'BOLT_GEM' => 'true', 'BOLT_DISABLE_ANALYTICS' => 'true' }
+      if Proxy::SETTINGS.ssl_certificate
+        certname = File.basename(Proxy::SETTINGS.ssl_certificate, '.pem').strip
+        env['MCOLLECTIVE_CERTNAME'] = certname unless certname.empty?
+      end
       stdout, stderr, status = Open3.capture3(env, *command)
       exitcode = status.exitstatus
       if exitcode.nil?

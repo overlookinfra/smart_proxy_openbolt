@@ -559,3 +559,28 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
     assert_equal 'uuid', result['id']
   end
 end
+
+class OpenboltEnvTest < SmartProxyOpenboltTestCase
+  def test_sets_mcollective_certname_from_ssl_certificate
+    Proxy::SETTINGS.stubs(:ssl_certificate).returns('/etc/puppetlabs/puppet/ssl/certs/primary.example.com.pem')
+    status = stub(exitstatus: 0)
+    Open3.expects(:capture3).with(
+      has_entries('MCOLLECTIVE_CERTNAME' => 'primary.example.com', 'BOLT_GEM' => 'true'),
+      'echo', 'test'
+    ).returns(['', '', status])
+
+    Proxy::OpenBolt.openbolt(['echo', 'test'])
+  end
+
+  def test_does_not_set_mcollective_certname_when_ssl_certificate_is_nil
+    Proxy::SETTINGS.stubs(:ssl_certificate).returns(nil)
+    status = stub(exitstatus: 0)
+    Open3.expects(:capture3).with(
+      Not(has_key('MCOLLECTIVE_CERTNAME')),
+      'echo', 'test'
+    ).returns(['', '', status])
+
+    Proxy::OpenBolt.openbolt(['echo', 'test'])
+  end
+
+end
