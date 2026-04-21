@@ -1,0 +1,58 @@
+name: smart_proxy_openbolt-choria
+
+services:
+  proxy:
+    container_name: openbolt-choria-proxy
+    hostname: choria-proxy
+    image: openbolt-choria-proxy-prepared
+    pull_policy: never
+    platform: linux/amd64
+    entrypoint: ["/entrypoint.sh"]
+    ports:
+      - "8444:8443"
+    volumes:
+      - ../../../../:/opt/smart_proxy_openbolt
+      - ../../fixtures/modules/acceptance:/etc/puppetlabs/code/environments/production/modules/acceptance:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sfk",
+        "--cert", "/etc/puppetlabs/puppet/ssl/certs/acceptance-test-client.pem",
+        "--key", "/etc/puppetlabs/puppet/ssl/private_keys/acceptance-test-client.pem",
+        "https://localhost:8443/openbolt/tasks"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
+
+  target1:
+    container_name: openbolt-choria-target1
+    hostname: choria-target1
+    image: openbolt-choria-target1-prepared
+    pull_policy: never
+    platform: linux/amd64
+    entrypoint: ["/entrypoint.sh"]
+    depends_on:
+      proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'choria server'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+
+  target2:
+    container_name: openbolt-choria-target2
+    hostname: choria-target2
+    image: openbolt-choria-target2-prepared
+    pull_policy: never
+    platform: linux/amd64
+    entrypoint: ["/entrypoint.sh"]
+    depends_on:
+      proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'choria server'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s

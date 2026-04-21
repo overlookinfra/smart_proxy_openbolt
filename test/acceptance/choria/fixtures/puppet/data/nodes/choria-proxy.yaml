@@ -1,0 +1,9 @@
+choria::broker::network_broker: true
+choria::broker::manage_service: false
+
+mcollective::client: true
+mcollective::client_config:
+  plugin.security.provider: "file"
+  plugin.security.file.certificate: "/etc/puppetlabs/puppet/ssl/certs/choria-proxy.pem"
+  plugin.security.file.key: "/etc/puppetlabs/puppet/ssl/private_keys/choria-proxy.pem"
+  plugin.security.file.ca: "/etc/puppetlabs/puppet/ssl/certs/ca.pem"

@@ -11,5 +11,6 @@
 .ruby-version
 /pkg/
 # Generated at runtime by acceptance tests
-/test/acceptance/fixtures/keys/
-/test/acceptance/docker/ssl-export/
+/test/acceptance/ssh/fixtures/keys/
+/test/acceptance/ssl-export/
+/test/acceptance/choria/fixtures/rpms/*.rpm

@@ -1,4 +1,4 @@
-name: smart_proxy_openbolt-acceptance
+name: smart_proxy_openbolt-ssh
 
 services:
   proxy:
@@ -14,9 +14,9 @@ services:
       - "8443:8443"
     volumes:
       # Plugin source (bind-mounted for dev iteration)
-      - ../../../:/opt/smart_proxy_openbolt
-      # Task modules at the production default path
-      - ../fixtures/modules:/etc/puppetlabs/code/environments/production/modules:ro
+      - ../../../../:/opt/smart_proxy_openbolt
+      # Task modules at the production default path (shared fixtures)
+      - ../../fixtures/modules:/etc/puppetlabs/code/environments/production/modules:ro
       # SSH private key for bolt to connect to targets
       - ../fixtures/keys/id_rsa:/tmp/ssh/id_rsa:ro
     depends_on:

@@ -47,11 +47,29 @@ jobs:
         if: always()
         run: bundle exec rake acceptance:ssh:down
 
+  acceptance-choria:
+    name: Acceptance (Choria)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      - name: Start proxy and Choria targets
+        run: bundle exec rake acceptance:choria:up
+      - name: Run Choria acceptance tests
+        run: bundle exec rake acceptance:choria
+      - name: Stop containers
+        if: always()
+        run: bundle exec rake acceptance:choria:down
+
   tests:
     needs:
       - test
       - rubocop
       - acceptance-ssh
+      - acceptance-choria
     runs-on: ubuntu-latest
     name: Test suite
     steps:

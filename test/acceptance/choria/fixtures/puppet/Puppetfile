@@ -1,0 +1,23 @@
+# Choria infrastructure modules
+mod 'choria-choria', :latest
+mod 'choria-mcollective', :latest
+mod 'choria-mcollective_choria', :latest
+
+# Choria agent modules (pulled in by choria-choria)
+mod 'choria-mcollective_agent_puppet', :latest
+mod 'choria-mcollective_agent_package', :latest
+mod 'choria-mcollective_agent_service', :latest
+mod 'choria-mcollective_agent_filemgr', :latest
+mod 'choria-mcollective_util_actionpolicy', :latest
+
+# Shell agent from git (forge version outdated, need 1.2.1 for batched statuses)
+mod 'mcollective_agent_shell',
+  git: 'https://github.com/choria-plugins/shell-agent',
+  ref: '1.2.1'
+
+# Third-party dependencies
+mod 'puppetlabs-stdlib', :latest
+mod 'puppetlabs-apt', '9.4.0'
+mod 'puppetlabs-concat', :latest
+mod 'puppetlabs-inifile', :latest
+mod 'puppet-systemd', '6.6.0'

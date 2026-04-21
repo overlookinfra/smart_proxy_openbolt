@@ -9,7 +9,7 @@ require 'uri'
 class AcceptanceTestCase < Test::Unit::TestCase
   PROXY_HOST = ENV.fetch('PROXY_HOST', 'localhost')
   PROXY_PORT = ENV.fetch('PROXY_PORT', '8443').to_i
-  SSL_DIR = ENV.fetch('SSL_DIR', File.expand_path('docker/ssl-export', __dir__))
+  SSL_DIR = ENV.fetch('SSL_DIR', File.expand_path('ssl-export', __dir__))
 
   def setup
     skip_unless_proxy
@@ -102,14 +102,16 @@ class AcceptanceTestCase < Test::Unit::TestCase
   def transport_targets
     case self.class.transport
     when 'ssh' then ssh_targets
-    else raise "Unknown transport '#{self.class.transport}'. Supported: ssh"
+    when 'choria' then choria_targets
+    else raise "Unknown transport '#{self.class.transport}'. Supported: ssh, choria"
     end
   end
 
   def transport_options
     case self.class.transport
     when 'ssh' then ssh_options
-    else raise "Unknown transport '#{self.class.transport}'. Supported: ssh"
+    when 'choria' then choria_options
+    else raise "Unknown transport '#{self.class.transport}'. Supported: ssh, choria"
     end
   end
 
@@ -123,6 +125,17 @@ class AcceptanceTestCase < Test::Unit::TestCase
       'user' => 'openbolt',
       'host-key-check' => false,
       'private-key' => '/opt/foreman-proxy/.ssh/id_rsa',
+    }
+  end
+
+  def choria_targets
+    %w[choria-target1 choria-target2]
+  end
+
+  def choria_options
+    {
+      'transport' => 'choria',
+      'choria-task-agent' => 'shell',
     }
   end
 
@@ -166,14 +179,11 @@ class AcceptanceTestCase < Test::Unit::TestCase
     client.cert = OpenSSL::X509::Certificate.new(File.read(client_cert))
     client.key = OpenSSL::PKey.read(File.read(client_key))
 
-    # Verify the proxy's certificate against the test CA when available,
-    # otherwise fall back to no verification for self-signed certs.
-    if File.exist?(ca_cert)
-      client.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      client.ca_file = ca_cert
-    else
-      client.verify_mode = OpenSSL::SSL::VERIFY_NONE
-    end
+    # Skip server cert verification. The proxy uses either a self-signed
+    # cert (SSH) or a Puppet CA cert whose CN doesn't include localhost
+    # (Choria). Client cert auth is what matters -- the server verifies
+    # our cert against its trusted_hosts list.
+    client.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
     client
   end

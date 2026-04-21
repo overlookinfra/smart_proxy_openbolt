@@ -73,12 +73,14 @@ class Container
   end
 
   # Start a detached named container (returns immediately).
-  def start(platform: nil, privileged: false, hostname: nil, tmpfs: [])
+  def start(platform: nil, privileged: false, hostname: nil, tmpfs: [], volumes: {}, network: nil)
     cmd = ['docker', 'run', '-d', '--name', name]
     cmd.push('--platform', platform) if platform
     cmd << '--privileged' if privileged
     cmd.push('--hostname', hostname) if hostname
+    cmd.push('--network', network) if network
     tmpfs.each { |mount| cmd.push('--tmpfs', mount) }
+    volumes.each { |host_path, container_path| cmd.push('-v', "#{host_path}:#{container_path}") }
     cmd << image
     Shell.run(cmd)
   end
