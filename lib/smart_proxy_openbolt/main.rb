@@ -330,25 +330,57 @@ module Proxy::OpenBolt
 
         unless user_provided_config
           shipped_config = File.join(File.dirname(__FILE__), 'config', 'choria-client.conf')
-          options['choria-config-file'] = shipped_config if File.readable?(shipped_config)
+          if File.readable?(shipped_config)
+            options['choria-config-file'] = shipped_config
+          else
+            logger.warn("Choria: shipped config at #{shipped_config} is not readable " \
+                        "(exists=#{File.exist?(shipped_config)}). Check package installation " \
+                        "and foreman-proxy user permissions.")
+          end
         end
 
-        proxy_ssl = Proxy::SETTINGS.ssl_certificate &&
-                    Proxy::SETTINGS.ssl_private_key &&
-                    Proxy::SETTINGS.ssl_ca_file
+        if !user_provided_config
+          missing_ssl = []
+          missing_ssl << 'ssl_certificate' unless Proxy::SETTINGS.ssl_certificate
+          missing_ssl << 'ssl_private_key' unless Proxy::SETTINGS.ssl_private_key
+          missing_ssl << 'ssl_ca_file' unless Proxy::SETTINGS.ssl_ca_file
 
-        if !user_provided_config && proxy_ssl
-          options['choria-ssl-cert'] ||= Proxy::SETTINGS.ssl_certificate
-          options['choria-ssl-key']  ||= Proxy::SETTINGS.ssl_private_key
-          options['choria-ssl-ca']   ||= Proxy::SETTINGS.ssl_ca_file
+          if missing_ssl.empty?
+            options['choria-ssl-cert'] ||= Proxy::SETTINGS.ssl_certificate
+            options['choria-ssl-key']  ||= Proxy::SETTINGS.ssl_private_key
+            options['choria-ssl-ca']   ||= Proxy::SETTINGS.ssl_ca_file
+          else
+            logger.warn("Choria: cannot default SSL from proxy settings, missing: #{missing_ssl.join(', ')}. " \
+                        "Set choria-ssl-cert, choria-ssl-key, and choria-ssl-ca explicitly.")
+          end
+        elsif !options.key?('choria-ssl-cert')
+          logger.info('Choria: custom config file provided without SSL options. ' \
+                      'SSL settings will be read from the config file.')
         end
 
         unless options.key?('choria-mcollective-certname')
           cert_path = options['choria-ssl-cert']
-          if cert_path && File.readable?(cert_path)
-            cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
-            cn = cert.subject.to_a.find { |name, _, _| name == 'CN' }
-            options['choria-mcollective-certname'] = cn[1] if cn
+          if cert_path.nil?
+            logger.debug('Choria: no choria-ssl-cert available, cannot derive mcollective-certname.')
+          elsif !File.readable?(cert_path)
+            logger.warn("Choria: cannot derive mcollective-certname, cert at #{cert_path} is not readable. " \
+                        "Set 'choria-mcollective-certname' explicitly or fix file permissions.")
+          else
+            begin
+              cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
+              cn = cert.subject.to_a.find { |name, _, _| name == 'CN' }
+              if cn
+                options['choria-mcollective-certname'] = cn[1]
+              else
+                logger.warn("Choria: certificate at #{cert_path} has no CN. " \
+                            "Set 'choria-mcollective-certname' explicitly.")
+              end
+            rescue OpenSSL::X509::CertificateError => error
+              raise Error.new(
+                message: "Cannot read Choria certificate at #{cert_path}: #{error.message}. " \
+                         "Set 'choria-mcollective-certname' explicitly or fix the certificate file."
+              )
+            end
           end
         end
 

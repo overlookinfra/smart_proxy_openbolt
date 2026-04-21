@@ -698,4 +698,13 @@ class ChoriaDefaultsTest < SmartProxyOpenboltTestCase
     assert_nil job.options['choria-ssl-cert']
     assert_nil job.options['choria-mcollective-certname']
   end
+
+  def test_does_not_default_ssl_when_proxy_has_no_ssl
+    stub_proxy_no_ssl
+    job = capture_launched_job({ 'transport' => 'choria', 'nats-servers' => 'broker:4222' })
+    assert_nil job.options['choria-ssl-cert']
+    assert_nil job.options['choria-ssl-key']
+    assert_nil job.options['choria-ssl-ca']
+    assert_nil job.options['choria-mcollective-certname']
+  end
 end
