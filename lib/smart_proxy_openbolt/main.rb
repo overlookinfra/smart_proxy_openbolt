@@ -1,5 +1,6 @@
 require 'json'
 require 'open3'
+require 'openssl'
 require 'smart_proxy_openbolt/executor'
 require 'smart_proxy_openbolt/error'
 
@@ -105,7 +106,13 @@ module Proxy::OpenBolt
       :type => :string,
       :transport => ['choria'],
       :sensitive => false,
-      :description => 'Path on the smart proxy host to the Choria client configuration file. This file must be readable by the foreman-proxy user.',
+      :description => 'Path on the smart proxy host to the Choria client configuration file. This file must be readable by the foreman-proxy user. When blank, the proxy uses a built-in default.',
+    },
+    'choria-mcollective-certname' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Override the MCollective certname for Choria client identity. When blank, the proxy derives this automatically from the SSL certificate.',
     },
     'choria-ssl-ca' => {
       :type => :string,
@@ -316,6 +323,38 @@ module Proxy::OpenBolt
       OPENBOLT_OPTIONS.each { |key, meta| options[key] ||= meta[:default] if meta.key?(:default) }
       logger.info("Options with required defaults: #{scrub(options, options.inspect)}")
 
+      # Choria transport defaults: fill in config file, SSL certs, and
+      # certname when the user has not provided them.
+      if options['transport'] == 'choria'
+        user_provided_config = options.key?('choria-config-file')
+
+        unless user_provided_config
+          shipped_config = File.join(File.dirname(__FILE__), 'config', 'choria-client.conf')
+          options['choria-config-file'] = shipped_config if File.readable?(shipped_config)
+        end
+
+        proxy_ssl = Proxy::SETTINGS.ssl_certificate &&
+                    Proxy::SETTINGS.ssl_private_key &&
+                    Proxy::SETTINGS.ssl_ca_file
+
+        if !user_provided_config && proxy_ssl
+          options['choria-ssl-cert'] ||= Proxy::SETTINGS.ssl_certificate
+          options['choria-ssl-key']  ||= Proxy::SETTINGS.ssl_private_key
+          options['choria-ssl-ca']   ||= Proxy::SETTINGS.ssl_ca_file
+        end
+
+        unless options.key?('choria-mcollective-certname')
+          cert_path = options['choria-ssl-cert']
+          if cert_path && File.readable?(cert_path)
+            cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
+            cn = cert.subject.to_a.find { |name, _, _| name == 'CN' }
+            options['choria-mcollective-certname'] = cn[1] if cn
+          end
+        end
+
+        logger.info("Choria options after defaults: #{scrub(options, options.inspect)}")
+      end
+
       # Validate option types
       options = options.to_h do |key, value|
         type = OPENBOLT_OPTIONS[key][:type]
@@ -414,10 +453,6 @@ module Proxy::OpenBolt
     # process is killed by a signal (exitstatus is nil).
     def openbolt(command)
       env = { 'BOLT_GEM' => 'true', 'BOLT_DISABLE_ANALYTICS' => 'true' }
-      if Proxy::SETTINGS.ssl_certificate
-        certname = File.basename(Proxy::SETTINGS.ssl_certificate, '.pem').strip
-        env['MCOLLECTIVE_CERTNAME'] = certname unless certname.empty?
-      end
       stdout, stderr, status = Open3.capture3(env, *command)
       exitcode = status.exitstatus
       if exitcode.nil?

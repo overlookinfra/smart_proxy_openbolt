@@ -68,37 +68,40 @@ The plugin is configured in `settings.d/openbolt.yml` on the Smart Proxy host. A
 
 ## Choria Transport
 
-The Choria transport requires a MCollective client configuration file on the
-proxy host. The `foreman-proxy` user must be in the `puppet` group so it can
-read the OpenVox/Puppet SSL files. This is the default when the proxy is set
-up with `foreman-installer` (the `puppet-foreman_proxy` module's
+The Choria transport works out of the box on HTTPS-enabled proxies. The
+proxy ships a built-in MCollective client configuration and automatically
+derives SSL paths and the MCollective certname from the proxy's own
+OpenVox/Puppet certificates (configured via `ssl_certificate`,
+`ssl_private_key`, and `ssl_ca_file` in `settings.yml`).
+
+The `foreman-proxy` user must be in the `puppet` group to read the SSL
+files. This is the default when the proxy is set up with
+`foreman-installer` (the `puppet-foreman_proxy` module's
 `manage_puppet_group` parameter handles this).
 
-Create `~foreman-proxy/.choriarc` (typically `/usr/share/foreman-proxy/.choriarc`)
-with the following contents. Replace `primary.example.com` with your broker's
-FQDN and `<certname>` with the proxy host's certname (output of
-`puppet config print certname`):
+The only required user configuration is the NATS Servers address, set in
+the Foreman UI under Settings > OpenBolt. All other Choria settings
+(SSL cert/key/CA, config file, MCollective certname) have sensible
+defaults that can be overridden per-launch from the Foreman UI if needed.
 
-```ini
-collectives = mcollective
-main_collective = mcollective
-connector = nats
-identity = <certname>
-libdir = /opt/puppetlabs/mcollective/plugins
-logger_type = console
-loglevel = warn
-securityprovider = choria
-plugin.choria.middleware_hosts = primary.example.com:4222
-plugin.security.provider = file
-plugin.security.file.certificate = /etc/puppetlabs/puppet/ssl/certs/<certname>.pem
-plugin.security.file.key = /etc/puppetlabs/puppet/ssl/private_keys/<certname>.pem
-plugin.security.file.ca = /etc/puppetlabs/puppet/ssl/certs/ca.pem
-```
+### Custom Choria configuration file
 
-The proxy automatically sets the `MCOLLECTIVE_CERTNAME` environment variable
-(derived from the `ssl_certificate` path in `settings.yml`) so that the Choria
-Ruby client uses the correct certificate identity. No additional configuration
-is needed for this.
+To use a custom MCollective client configuration file instead of the
+built-in default, set the "Choria Config File" setting in the Foreman
+UI. When a custom config file is provided, the proxy does not inject
+SSL defaults (the config file is expected to handle SSL on its own).
+SSL settings from the Foreman UI still override the config file if set.
+
+### How it works
+
+When the transport is Choria and no custom config file is provided:
+
+1. The proxy uses its built-in `choria-client.conf` (MCollective boilerplate)
+2. SSL cert, key, and CA default from the proxy's `settings.yml` SSL paths
+3. The MCollective certname is read from the certificate's CN
+4. All values are passed as OpenBolt CLI flags (`--choria-ssl-cert`,
+   `--choria-ssl-key`, `--choria-ssl-ca`, `--choria-mcollective-certname`,
+   `--choria-config-file`)
 
 For full Choria infrastructure setup (broker, managed nodes, Puppet modules),
 see the [Choria Testing](https://github.com/overlookinfra/foreman_openbolt/blob/main/docs/choria-testing.md) guide in the foreman_openbolt repo.
