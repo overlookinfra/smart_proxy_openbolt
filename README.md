@@ -68,6 +68,9 @@ The plugin is configured in `settings.d/openbolt.yml` on the Smart Proxy host. A
 
 ## Choria Transport
 
+**Requires OpenBolt 5.5 or later.** The Choria transport is not available
+in Puppet Bolt. SSH and WinRM transports work with any version.
+
 The Choria transport works out of the box on HTTPS-enabled proxies. The
 proxy ships a built-in MCollective client configuration and automatically
 derives SSL paths and the MCollective certname from the proxy's own
@@ -79,18 +82,22 @@ files. This is the default when the proxy is set up with
 `foreman-installer` (the `puppet-foreman_proxy` module's
 `manage_puppet_group` parameter handles this).
 
-The only required user configuration is the NATS Servers address, set in
+If the Choria client cannot locate a broker via the config file, SRV
+records, or the `puppet:4222` fallback, set the Choria Brokers option in
 the Foreman UI under Settings > OpenBolt. All other Choria settings
 (SSL cert/key/CA, config file, MCollective certname) have sensible
 defaults that can be overridden per-launch from the Foreman UI if needed.
 
 ### Custom Choria configuration file
 
-To use a custom MCollective client configuration file instead of the
-built-in default, set the "Choria Config File" setting in the Foreman
-UI. When a custom config file is provided, the proxy does not inject
-SSL defaults (the config file is expected to handle SSL on its own).
-SSL settings from the Foreman UI still override the config file if set.
+The built-in default config is at
+`lib/smart_proxy_openbolt/config/choria-client.conf` in this gem. You
+can view it to see what settings are included. To use a custom
+MCollective client configuration file instead, set the "Choria Config
+File" setting in the Foreman UI. When a custom config file is provided,
+the proxy does not inject SSL defaults (the config file is expected to
+handle SSL on its own). SSL settings from the Foreman UI still override
+the config file if set.
 
 ### How it works
 

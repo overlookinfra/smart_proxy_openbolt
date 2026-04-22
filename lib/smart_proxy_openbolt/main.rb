@@ -162,17 +162,17 @@ module Proxy::OpenBolt
       :sensitive => false,
       :description => 'Timeout in seconds for a Choria shell command to complete on a target node. Defaults to 60 when not specified.',
     },
-    'nats-servers' => {
+    'choria-brokers' => {
       :type => :string,
       :transport => ['choria'],
       :sensitive => false,
-      :description => 'Comma-separated list of NATS broker addresses in host:port format (e.g. broker1:4222,broker2:4222). Do not use the nats:// prefix.',
+      :description => 'Comma-separated list of Choria broker addresses in host or host:port format (e.g. broker1:4222,broker2:4222). Port defaults to 4222 if omitted.',
     },
-    'nats-connection-timeout' => {
+    'choria-broker-timeout' => {
       :type => :string,
       :transport => ['choria'],
       :sensitive => false,
-      :description => 'Timeout in seconds for establishing a connection to a NATS server.',
+      :description => 'Timeout in seconds for establishing a connection to a Choria broker.',
     },
   }.freeze
   SORTED_OPTIONS = OPENBOLT_OPTIONS.sort.to_h.freeze
