@@ -166,7 +166,7 @@ module Proxy::OpenBolt
       :type => :string,
       :transport => ['choria'],
       :sensitive => false,
-      :description => 'Comma-separated list of NATS server URIs the Choria client should connect to (e.g. nats://broker1:4222,nats://broker2:4222).',
+      :description => 'Comma-separated list of NATS broker addresses in host:port format (e.g. broker1:4222,broker2:4222). Do not use the nats:// prefix.',
     },
     'nats-connection-timeout' => {
       :type => :string,
