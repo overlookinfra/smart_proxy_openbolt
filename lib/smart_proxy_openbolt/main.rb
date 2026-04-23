@@ -341,9 +341,9 @@ module Proxy::OpenBolt
 
         if !user_provided_config
           missing_ssl = []
-          missing_ssl << 'ssl_certificate' unless Proxy::SETTINGS.ssl_certificate
-          missing_ssl << 'ssl_private_key' unless Proxy::SETTINGS.ssl_private_key
-          missing_ssl << 'ssl_ca_file' unless Proxy::SETTINGS.ssl_ca_file
+          missing_ssl << 'ssl_certificate' if Proxy::SETTINGS.ssl_certificate.to_s.strip.empty?
+          missing_ssl << 'ssl_private_key' if Proxy::SETTINGS.ssl_private_key.to_s.strip.empty?
+          missing_ssl << 'ssl_ca_file' if Proxy::SETTINGS.ssl_ca_file.to_s.strip.empty?
 
           if missing_ssl.empty?
             options['choria-ssl-cert'] ||= Proxy::SETTINGS.ssl_certificate
@@ -361,7 +361,7 @@ module Proxy::OpenBolt
         unless options.key?('choria-mcollective-certname')
           cert_path = options['choria-ssl-cert']
           if cert_path.nil?
-            logger.debug('Choria: no choria-ssl-cert available, cannot derive mcollective-certname.')
+            logger.warn('Choria: no choria-ssl-cert available, cannot derive mcollective-certname.')
           elsif !File.readable?(cert_path)
             logger.warn("Choria: cannot derive mcollective-certname, cert at #{cert_path} is not readable. " \
                         "Set 'choria-mcollective-certname' explicitly or fix file permissions.")
