@@ -101,10 +101,15 @@ The built-in default config is at
 can view it to see what settings are included. To use a custom
 MCollective client configuration file instead, set the "Choria Config
 File" setting under Administer > Settings > OpenBolt. When a custom
-config file is provided,
-the proxy does not inject SSL defaults (the config file is expected to
-handle SSL on its own). SSL settings from the Foreman UI still override
-the config file if set.
+config file is provided, the proxy does not inject SSL defaults (the
+config file is expected to handle SSL on its own). SSL settings from
+the Foreman UI still override the config file if set.
+
+If your custom config file includes its own SSL paths, you should also
+set **Choria MCollective Certname** to the CN of the certificate in your
+config file. Without it, the MCollective client defaults to
+`<user>.mcollective` (e.g. `foreman-proxy.mcollective`), which will fail
+authentication if the certificate's CN doesn't match that pattern.
 
 ### How it works
 

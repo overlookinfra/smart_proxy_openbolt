@@ -360,7 +360,10 @@ module Proxy::OpenBolt
 
         unless options.key?('choria-mcollective-certname')
           cert_path = options['choria-ssl-cert']
-          if cert_path.nil?
+          if cert_path.nil? && user_provided_config
+            logger.info('Choria: custom config file provided, certname will come from the config file or ' \
+                        "default to '<user>.mcollective'. Set 'choria-mcollective-certname' if needed.")
+          elsif cert_path.nil?
             logger.warn('Choria: no choria-ssl-cert available, cannot derive mcollective-certname.')
           elsif !File.readable?(cert_path)
             logger.warn("Choria: cannot derive mcollective-certname, cert at #{cert_path} is not readable. " \
