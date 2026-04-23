@@ -39,7 +39,7 @@ class SmartProxyOpenboltTestCase < Test::Unit::TestCase
     captured = nil
     Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured = job }.returns('uuid')
     Proxy::OpenBolt.launch_task({
-      'name' => name, 'parameters' => parameters, 'targets' => targets, 'options' => options,
+      'name' => name, 'parameters' => parameters, 'targets' => targets, 'options' => options
     })
     captured
   end

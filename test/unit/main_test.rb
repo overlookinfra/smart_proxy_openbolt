@@ -158,8 +158,8 @@ class DeleteArtifactsTest < SmartProxyOpenboltTestCase
     assert_match(/Invalid file path/, error.message)
     assert File.exist?(outside_file), 'File outside log_dir should not be deleted'
   ensure
-    File.delete(expected_path) if File.exist?(expected_path)
-    File.delete(outside_file) if File.exist?(outside_file)
+    FileUtils.rm_f(expected_path)
+    FileUtils.rm_f(outside_file)
   end
 
   def test_returns_not_found_for_missing_artifacts

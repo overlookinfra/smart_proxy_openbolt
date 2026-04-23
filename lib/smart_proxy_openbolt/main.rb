@@ -378,9 +378,9 @@ module Proxy::OpenBolt
                 logger.warn("Choria: certificate at #{cert_path} has no CN. " \
                             "Set 'choria-mcollective-certname' explicitly.")
               end
-            rescue OpenSSL::X509::CertificateError => error
+            rescue OpenSSL::X509::CertificateError => e
               raise Error.new(
-                message: "Cannot read Choria certificate at #{cert_path}: #{error.message}. " \
+                message: "Cannot read Choria certificate at #{cert_path}: #{e.message}. " \
                          "Set 'choria-mcollective-certname' explicitly or fix the certificate file."
               )
             end
