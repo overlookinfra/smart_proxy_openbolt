@@ -82,11 +82,17 @@ files. This is the default when the proxy is set up with
 `foreman-installer` (the `puppet-foreman_proxy` module's
 `manage_puppet_group` parameter handles this).
 
-If the Choria client cannot locate a broker via the config file, SRV
-records, or the `puppet:4222` fallback, set the Choria Brokers option in
-the Foreman UI under Settings > OpenBolt. All other Choria settings
-(SSL cert/key/CA, config file, MCollective certname) have sensible
-defaults that can be overridden per-launch from the Foreman UI if needed.
+In common configurations where the Choria broker and Foreman are on the
+same host, OpenVox/Puppet certificates are being used for authentication,
+and Choria configuration is largely using default settings, the Choria
+transport mostly just works out of the box with default settings. The one
+setting you may need to evaluate is **Choria Brokers** (in the Foreman UI
+under Administer > Settings > OpenBolt). If `puppet` resolves to the
+broker host or SRV records are configured, it can be left blank. Otherwise,
+set it to your broker's address (e.g. `primary.example.com:4222`). Other
+Choria settings (SSL, a default config file we provide, certname) are
+derived automatically and can be ignored unless your Choria configuration
+requires customization.
 
 ### Custom Choria configuration file
 
@@ -94,7 +100,8 @@ The built-in default config is at
 `lib/smart_proxy_openbolt/config/choria-client.conf` in this gem. You
 can view it to see what settings are included. To use a custom
 MCollective client configuration file instead, set the "Choria Config
-File" setting in the Foreman UI. When a custom config file is provided,
+File" setting under Administer > Settings > OpenBolt. When a custom
+config file is provided,
 the proxy does not inject SSL defaults (the config file is expected to
 handle SSL on its own). SSL settings from the Foreman UI still override
 the config file if set.
