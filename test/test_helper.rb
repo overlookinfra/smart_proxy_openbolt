@@ -34,4 +34,13 @@ class SmartProxyOpenboltTestCase < Test::Unit::TestCase
   def teardown
     FileUtils.rm_rf(@test_log_dir) if @test_log_dir && Dir.exist?(@test_log_dir)
   end
+
+  def capture_launched_job(options, name: 'test::task', parameters: { 'required_param' => 'val' }, targets: 'node1')
+    captured = nil
+    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured = job }.returns('uuid')
+    Proxy::OpenBolt.launch_task({
+      'name' => name, 'parameters' => parameters, 'targets' => targets, 'options' => options,
+    })
+    captured
+  end
 end

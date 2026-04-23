@@ -143,6 +143,31 @@ class GetStatusAndResultTest < SmartProxyOpenboltTestCase
   end
 end
 
+class DeleteArtifactsTest < SmartProxyOpenboltTestCase
+  def test_rejects_path_outside_log_dir
+    job_id = 'aabbccdd-1122-3344-5566-778899aabbcc'
+    outside_file = File.join(Dir.tmpdir, "#{job_id}.json")
+    File.write(outside_file, '{}')
+
+    expected_path = Proxy::OpenBolt.result_file_path(job_id)
+    File.symlink(outside_file, expected_path)
+
+    error = assert_raise(Proxy::OpenBolt::Error) do
+      Proxy::OpenBolt.delete_artifacts(job_id)
+    end
+    assert_match(/Invalid file path/, error.message)
+    assert File.exist?(outside_file), 'File outside log_dir should not be deleted'
+  ensure
+    File.delete(expected_path) if File.exist?(expected_path)
+    File.delete(outside_file) if File.exist?(outside_file)
+  end
+
+  def test_returns_not_found_for_missing_artifacts
+    result = JSON.parse(Proxy::OpenBolt.delete_artifacts('aabbccdd-0000-0000-0000-000000000000'))
+    assert_equal 'not_found', result['status']
+  end
+end
+
 class TasksTest < SmartProxyOpenboltTestCase
   def setup
     super
@@ -283,20 +308,6 @@ class LaunchTaskTest < SmartProxyOpenboltTestCase
         },
       },
     })
-  end
-
-  # Stubs add_job to capture the job passed to it, launches the task with
-  # sensible defaults, and returns the captured job for assertions.
-  def capture_launched_job(options, name: 'test::task', parameters: { 'required_param' => 'val' }, targets: 'node1')
-    captured = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured = job }.returns('uuid')
-    Proxy::OpenBolt.launch_task({
-      'name' => name,
-      'parameters' => parameters,
-      'targets' => targets,
-      'options' => options,
-    })
-    captured
   end
 
   def test_rejects_non_hash_data
@@ -622,15 +633,6 @@ class ChoriaDefaultsTest < SmartProxyOpenboltTestCase
     Proxy::SETTINGS.stubs(:ssl_ca_file).returns(nil)
   end
 
-  def capture_launched_job(options, name: 'test::task', parameters: { 'required_param' => 'val' }, targets: 'node1')
-    captured = nil
-    Proxy::OpenBolt.executor.stubs(:add_job).with { |job| captured = job }.returns('uuid')
-    Proxy::OpenBolt.launch_task({
-      'name' => name, 'parameters' => parameters, 'targets' => targets, 'options' => options,
-    })
-    captured
-  end
-
   def test_defaults_choria_config_file_to_shipped_config
     stub_proxy_ssl
     job = capture_launched_job({ 'transport' => 'choria' })
@@ -701,10 +703,69 @@ class ChoriaDefaultsTest < SmartProxyOpenboltTestCase
 
   def test_does_not_default_ssl_when_proxy_has_no_ssl
     stub_proxy_no_ssl
-    job = capture_launched_job({ 'transport' => 'choria', 'choria-brokers' => 'broker:4222' })
+    job = capture_launched_job({ 'transport' => 'choria' })
     assert_nil job.options['choria-ssl-cert']
     assert_nil job.options['choria-ssl-key']
     assert_nil job.options['choria-ssl-ca']
     assert_nil job.options['choria-mcollective-certname']
+  end
+
+  def test_skips_certname_when_cert_is_unreadable
+    stub_proxy_ssl
+    File.stubs(:readable?).returns(true)
+    File.stubs(:readable?).with(@cert_path).returns(false)
+
+    job = capture_launched_job({ 'transport' => 'choria' })
+    assert_nil job.options['choria-mcollective-certname']
+    assert_equal @cert_path, job.options['choria-ssl-cert']
+  end
+
+  def test_skips_certname_when_cert_has_no_cn
+    key = OpenSSL::PKey::RSA.new(2048)
+    no_cn_cert = OpenSSL::X509::Certificate.new
+    no_cn_cert.version = 2
+    no_cn_cert.serial = 2
+    no_cn_cert.subject = OpenSSL::X509::Name.parse('O=Example,OU=Testing')
+    no_cn_cert.issuer = no_cn_cert.subject
+    no_cn_cert.public_key = key.public_key
+    no_cn_cert.not_before = Time.now
+    no_cn_cert.not_after = Time.now + 3600
+    no_cn_cert.sign(key, OpenSSL::Digest.new('SHA256'))
+
+    no_cn_path = File.join(@cert_dir, 'no_cn.pem')
+    File.write(no_cn_path, no_cn_cert.to_pem)
+
+    Proxy::SETTINGS.stubs(:ssl_certificate).returns(no_cn_path)
+    Proxy::SETTINGS.stubs(:ssl_private_key).returns(@key_path)
+    Proxy::SETTINGS.stubs(:ssl_ca_file).returns(@ca_path)
+
+    job = capture_launched_job({ 'transport' => 'choria' })
+    assert_nil job.options['choria-mcollective-certname']
+  end
+
+  def test_raises_when_cert_file_is_corrupt
+    corrupt_path = File.join(@cert_dir, 'corrupt.pem')
+    File.write(corrupt_path, 'not a certificate')
+
+    Proxy::SETTINGS.stubs(:ssl_certificate).returns(corrupt_path)
+    Proxy::SETTINGS.stubs(:ssl_private_key).returns(@key_path)
+    Proxy::SETTINGS.stubs(:ssl_ca_file).returns(@ca_path)
+
+    error = assert_raise(Proxy::OpenBolt::Error) do
+      capture_launched_job({ 'transport' => 'choria' })
+    end
+    assert_match(/Cannot read Choria certificate/, error.message)
+    assert_match(/corrupt\.pem/, error.message)
+  end
+
+  def test_skips_ssl_defaults_when_proxy_has_partial_ssl
+    Proxy::SETTINGS.stubs(:ssl_certificate).returns(@cert_path)
+    Proxy::SETTINGS.stubs(:ssl_private_key).returns(@key_path)
+    Proxy::SETTINGS.stubs(:ssl_ca_file).returns(nil)
+
+    job = capture_launched_job({ 'transport' => 'choria' })
+    assert_nil job.options['choria-ssl-cert']
+    assert_nil job.options['choria-ssl-key']
+    assert_nil job.options['choria-ssl-ca']
   end
 end
