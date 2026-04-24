@@ -108,20 +108,26 @@ namespace :build do
     puts "RPM built: #{rpm}".green
   end
 
-  desc 'Build DEB using Debian container'
+  desc 'Build DEB using foreman-packaging and Debian container'
   task deb: :gem do
     FileUtils.rm_f(Dir.glob('pkg/ruby-smart-proxy-openbolt*.deb'))
     Container.run_once(
       image: build_deb_builder_image(FOREMAN_VERSION),
       cmd: <<~BASH,
         set -e
-        mkdir -p /build-deb/cache
-        cp /build/pkg/#{GEM_FILENAME} /build-deb/cache/
+        mkdir -p /build-deb
         cd /build-deb
-        gem2deb /build-deb/cache/#{GEM_FILENAME}
-        find / -name 'ruby-smart-proxy-openbolt*.deb' -exec cp {} /build/pkg/ \\;
+        gem2deb --only-source /build/pkg/#{GEM_FILENAME}
+        cd ruby-smart-proxy-openbolt-*
+        rm -rf debian
+        cp -a /opt/foreman-packaging/plugins/smart_proxy_openbolt debian
+        dpkg-buildpackage -us -uc
+        cp /build-deb/ruby-smart-proxy-openbolt*.deb /build/pkg/
       BASH
-      volumes: { Dir.pwd => '/build' },
+      volumes: {
+        Dir.pwd => '/build',
+        foreman_packaging_path(FOREMAN_VERSION, branch_prefix: 'deb') => '/opt/foreman-packaging',
+      },
       platform: 'linux/amd64'
     )
 
