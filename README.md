@@ -66,6 +66,13 @@ The plugin is configured in `settings.d/openbolt.yml` on the Smart Proxy host. A
 | `connect_timeout` | `30` | Connection timeout in seconds for target connections |
 | `log_dir` | `/var/log/foreman-proxy/openbolt` | Directory for job result files (created automatically if missing) |
 
+After installing the plugin and restarting the smart proxy, refresh the
+proxy features in Foreman so it detects the OpenBolt capability:
+
+```bash
+foreman-rake openbolt:refresh_proxies
+```
+
 ## Choria Transport
 
 **Requires OpenBolt 5.5 or later.** The Choria transport is not available
