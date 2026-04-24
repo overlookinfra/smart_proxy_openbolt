@@ -115,10 +115,12 @@ namespace :build do
       image: build_deb_builder_image(FOREMAN_VERSION),
       cmd: <<~BASH,
         set -e
+        export DEBEMAIL="packaging@overlookinfratech.com"
+        export DEBFULLNAME="Overlook InfraTech"
         mkdir -p /build-deb
         cd /build-deb
         gem2deb --only-source /build/pkg/#{GEM_FILENAME}
-        cd ruby-smart-proxy-openbolt-*
+        cd ruby-smart-proxy-openbolt-#{Gem::Specification.load(GEMSPEC).version}
         rm -rf debian
         cp -a /opt/foreman-packaging/plugins/smart_proxy_openbolt debian
         dpkg-buildpackage -us -uc
