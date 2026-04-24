@@ -9,11 +9,16 @@ FOREMAN_PACKAGING_REPO = ENV.fetch('FOREMAN_PACKAGING_REPO', 'https://github.com
 GEMSPEC = 'smart_proxy_openbolt.gemspec'
 GEM_FILENAME = "smart_proxy_openbolt-#{Gem::Specification.load(GEMSPEC).version}.gem".freeze
 
+def foreman_packaging_branch(foreman_version)
+  foreman_version == 'nightly' ? 'develop' : foreman_version
+end
+
 def foreman_packaging_path(foreman_version, branch_prefix: 'rpm')
+  packaging_version = foreman_packaging_branch(foreman_version)
   @foreman_packaging_paths ||= {}
-  key = "#{branch_prefix}-#{foreman_version}"
+  key = "#{branch_prefix}-#{packaging_version}"
   @foreman_packaging_paths[key] ||= begin
-    branch = "#{branch_prefix}/#{foreman_version}"
+    branch = "#{branch_prefix}/#{packaging_version}"
     dir = File.join(Dir.tmpdir, "foreman-packaging-#{key}")
     if File.directory?(dir)
       puts "Updating foreman-packaging (#{branch})...".magenta
@@ -85,7 +90,7 @@ namespace :build do
     FileUtils.mv(GEM_FILENAME, 'pkg/')
   end
 
-  desc 'Build RPM using foreman-packaging container'
+  desc 'Build RPM using foreman-packaging spec and container'
   task rpm: :gem do
     FileUtils.rm_f(Dir.glob('pkg/rubygem-smart_proxy_openbolt-*.rpm'))
 
@@ -94,8 +99,8 @@ namespace :build do
       cmd: <<~BASH,
         set -e
         cp /build/pkg/#{GEM_FILENAME} ~/rpmbuild/SOURCES/
-        gem2rpm -t /opt/foreman-packaging/gem2rpm/smart_proxy_plugin.spec.erb \
-          ~/rpmbuild/SOURCES/#{GEM_FILENAME} > ~/rpmbuild/SPECS/rubygem-smart_proxy_openbolt.spec
+        cp /opt/foreman-packaging/packages/plugins/rubygem-smart_proxy_openbolt/rubygem-smart_proxy_openbolt.spec \
+          ~/rpmbuild/SPECS/
         rpmbuild -ba ~/rpmbuild/SPECS/rubygem-smart_proxy_openbolt.spec
         cp ~/rpmbuild/RPMS/noarch/rubygem-smart_proxy_openbolt-*.rpm /build/pkg/
       BASH
@@ -117,18 +122,32 @@ namespace :build do
         set -e
         export DEBEMAIL="packaging@overlookinfratech.com"
         export DEBFULLNAME="Overlook InfraTech"
-        mkdir -p /build-deb
-        cd /build-deb
-        gem2deb --only-source /build/pkg/#{GEM_FILENAME}
-        cd ruby-smart-proxy-openbolt-#{Gem::Specification.load(GEMSPEC).version}
-        rm -rf debian
-        cp -a /opt/foreman-packaging/plugins/smart_proxy_openbolt debian
+
+        BUILD_DIR=$(mktemp -d)
+        cd "$BUILD_DIR"
+        cp /build/pkg/#{GEM_FILENAME} .
+
+        /opt/foreman-packaging/dependencies/gem2deb #{GEM_FILENAME} \
+          --debian-subdir /opt/foreman-packaging/plugins/smart_proxy_openbolt \
+          --only-source-dir
+
+        SRCDIR=$(find "$BUILD_DIR" -maxdepth 1 -type d -name 'ruby-smart-proxy-openbolt-*' | head -1)
+        if [ -z "$SRCDIR" ]; then
+          echo "ERROR: gem2deb did not create source directory in $BUILD_DIR"
+          exit 1
+        fi
+
+        cd "$SRCDIR"
+        echo "=== Source tree ==="
+        find . -not -path './debian/*' -not -path './.git/*' | sort
+        echo "=== debian/install ==="
+        cat debian/install
         dpkg-buildpackage -us -uc
-        cp /build-deb/ruby-smart-proxy-openbolt*.deb /build/pkg/
+        cp "$BUILD_DIR"/ruby-smart-proxy-openbolt*.deb /build/pkg/
       BASH
       volumes: {
         Dir.pwd => '/build',
-        foreman_packaging_path(FOREMAN_VERSION, branch_prefix: 'deb') => '/opt/foreman-packaging',
+        foreman_packaging_path('develop', branch_prefix: 'deb') => '/opt/foreman-packaging',
       },
       platform: 'linux/amd64'
     )
