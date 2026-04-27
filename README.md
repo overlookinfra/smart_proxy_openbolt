@@ -12,14 +12,14 @@ It exposes an HTTP API that the [foreman_openbolt](https://github.com/overlookin
 ## Introduction
 
 [OpenBolt](https://github.com/OpenVoxProject/openbolt) is the open source successor of [Bolt](https://github.com/puppetlabs/bolt) by [Perforce](https://www.perforce.com/).
-It runs Tasks and Plans against remote targets over SSH, WinRM, or other transports.
+It runs Tasks and Plans against remote targets over SSH, WinRM, Choria, or other transports.
 
 This smart proxy plugin wraps the OpenBolt CLI and provides:
 
 * A REST API for listing available tasks, launching task runs, and retrieving results
 * Concurrent job execution via a configurable thread pool
 * Disk-based result storage so results survive proxy restarts
-* Transport option forwarding (SSH, WinRM) from the Foreman UI
+* Transport option forwarding (SSH, WinRM, Choria) from the Foreman UI
 
 The Foreman UI talks to this plugin; it does not invoke OpenBolt directly. See the [foreman_openbolt README](https://github.com/overlookinfra/foreman_openbolt) for screenshots and the full user-facing workflow.
 
@@ -66,6 +66,72 @@ The plugin is configured in `settings.d/openbolt.yml` on the Smart Proxy host. A
 | `connect_timeout` | `30` | Connection timeout in seconds for target connections |
 | `log_dir` | `/var/log/foreman-proxy/openbolt` | Directory for job result files (created automatically if missing) |
 
+After installing the plugin and restarting the smart proxy, refresh the
+proxy features in Foreman so it detects the OpenBolt capability:
+
+```bash
+foreman-rake openbolt:refresh_proxies
+```
+
+## Choria Transport
+
+**Requires OpenBolt 5.5 or later.** The Choria transport is not available
+in Puppet Bolt. SSH and WinRM transports work with any version.
+
+The Choria transport works out of the box on HTTPS-enabled proxies. The
+proxy ships a built-in MCollective client configuration and automatically
+derives SSL paths and the MCollective certname from the proxy's own
+OpenVox/Puppet certificates (configured via `ssl_certificate`,
+`ssl_private_key`, and `ssl_ca_file` in `settings.yml`).
+
+The `foreman-proxy` user must be in the `puppet` group to read the SSL
+files. This is the default when the proxy is set up with
+`foreman-installer` (the `puppet-foreman_proxy` module's
+`manage_puppet_group` parameter handles this).
+
+In common configurations where the Choria broker and Foreman are on the
+same host, OpenVox/Puppet certificates are being used for authentication,
+and Choria configuration is largely using default settings, the Choria
+transport mostly just works out of the box with default settings. The one
+setting you may need to evaluate is **Choria Brokers** (in the Foreman UI
+under Administer > Settings > OpenBolt). If `puppet` resolves to the
+broker host or SRV records are configured, it can be left blank. Otherwise,
+set it to your broker's address (e.g. `primary.example.com:4222`). Other
+Choria settings (SSL, a default config file we provide, certname) are
+derived automatically and can be ignored unless your Choria configuration
+requires customization.
+
+### Custom Choria configuration file
+
+The built-in default config is at
+`lib/smart_proxy_openbolt/config/choria-client.conf` in this gem. You
+can view it to see what settings are included. To use a custom
+MCollective client configuration file instead, set the "Choria Config
+File" setting under Administer > Settings > OpenBolt. When a custom
+config file is provided, the proxy does not inject SSL defaults (the
+config file is expected to handle SSL on its own). SSL settings from
+the Foreman UI still override the config file if set.
+
+If your custom config file includes its own SSL paths, you should also
+set **Choria MCollective Certname** to the CN of the certificate in your
+config file. Without it, the MCollective client defaults to
+`<user>.mcollective` (e.g. `foreman-proxy.mcollective`), which will fail
+authentication if the certificate's CN doesn't match that pattern.
+
+### How it works
+
+When the transport is Choria and no custom config file is provided:
+
+1. The proxy uses its built-in `choria-client.conf` (MCollective boilerplate)
+2. SSL cert, key, and CA default from the proxy's `settings.yml` SSL paths
+3. The MCollective certname is read from the certificate's CN
+4. All values are passed as OpenBolt CLI flags (`--choria-ssl-cert`,
+   `--choria-ssl-key`, `--choria-ssl-ca`, `--choria-mcollective-certname`,
+   `--choria-config-file`)
+
+For full Choria infrastructure setup (broker, managed nodes, Puppet modules),
+see the [Choria Testing](https://github.com/overlookinfra/foreman_openbolt/blob/main/docs/choria-testing.md) guide in the foreman_openbolt repo.
+
 ## API
 
 The plugin mounts its API at `/openbolt` on the Smart Proxy. All endpoints are used by the Foreman plugin and are not intended for direct use, but can be useful for debugging.
@@ -74,7 +140,7 @@ The plugin mounts its API at `/openbolt` on the Smart Proxy. All endpoints are u
 |--------|----------|-------------|
 | `GET` | `/openbolt/tasks` | List available tasks from the configured environment |
 | `GET` | `/openbolt/tasks/reload` | Clear the task cache and reload from disk |
-| `GET` | `/openbolt/tasks/options` | Get available transport options (SSH, WinRM) |
+| `GET` | `/openbolt/tasks/options` | Get available transport options (SSH, WinRM, Choria) |
 | `POST` | `/openbolt/launch/task` | Launch a task run against specified targets |
 | `GET` | `/openbolt/job/:id/status` | Get the status of a running or completed job |
 | `GET` | `/openbolt/job/:id/result` | Get the full result of a completed job |

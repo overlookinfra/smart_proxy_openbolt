@@ -1,5 +1,6 @@
 require 'json'
 require 'open3'
+require 'openssl'
 require 'smart_proxy_openbolt/executor'
 require 'smart_proxy_openbolt/error'
 
@@ -105,7 +106,13 @@ module Proxy::OpenBolt
       :type => :string,
       :transport => ['choria'],
       :sensitive => false,
-      :description => 'Path on the smart proxy host to the Choria client configuration file. This file must be readable by the foreman-proxy user.',
+      :description => 'Path on the smart proxy host to the Choria client configuration file. This file must be readable by the foreman-proxy user. When blank, the proxy uses a built-in default.',
+    },
+    'choria-mcollective-certname' => {
+      :type => :string,
+      :transport => ['choria'],
+      :sensitive => false,
+      :description => 'Override the MCollective certname for Choria client identity. When blank, the proxy derives this automatically from the SSL certificate.',
     },
     'choria-ssl-ca' => {
       :type => :string,
@@ -155,17 +162,17 @@ module Proxy::OpenBolt
       :sensitive => false,
       :description => 'Timeout in seconds for a Choria shell command to complete on a target node. Defaults to 60 when not specified.',
     },
-    'nats-servers' => {
+    'choria-brokers' => {
       :type => :string,
       :transport => ['choria'],
       :sensitive => false,
-      :description => 'Comma-separated list of NATS server URIs the Choria client should connect to (e.g. nats://broker1:4222,nats://broker2:4222).',
+      :description => 'Comma-separated list of Choria broker addresses in host or host:port format (e.g. broker1:4222,broker2:4222). Port defaults to 4222 if omitted.',
     },
-    'nats-connection-timeout' => {
+    'choria-broker-timeout' => {
       :type => :string,
       :transport => ['choria'],
       :sensitive => false,
-      :description => 'Timeout in seconds for establishing a connection to a NATS server.',
+      :description => 'Timeout in seconds for establishing a connection to a Choria broker.',
     },
   }.freeze
   SORTED_OPTIONS = OPENBOLT_OPTIONS.sort.to_h.freeze
@@ -315,6 +322,73 @@ module Proxy::OpenBolt
       logger.info("Normalized options: #{scrub(options, options.inspect)}")
       OPENBOLT_OPTIONS.each { |key, meta| options[key] ||= meta[:default] if meta.key?(:default) }
       logger.info("Options with required defaults: #{scrub(options, options.inspect)}")
+
+      # Choria transport defaults: fill in config file, SSL certs, and
+      # certname when the user has not provided them.
+      if options['transport'] == 'choria'
+        user_provided_config = options.key?('choria-config-file')
+
+        unless user_provided_config
+          shipped_config = File.join(File.dirname(__FILE__), 'config', 'choria-client.conf')
+          if File.readable?(shipped_config)
+            options['choria-config-file'] = shipped_config
+          else
+            logger.warn("Choria: shipped config at #{shipped_config} is not readable " \
+                        "(exists=#{File.exist?(shipped_config)}). Check package installation " \
+                        "and foreman-proxy user permissions.")
+          end
+        end
+
+        if !user_provided_config
+          missing_ssl = []
+          missing_ssl << 'ssl_certificate' if Proxy::SETTINGS.ssl_certificate.to_s.strip.empty?
+          missing_ssl << 'ssl_private_key' if Proxy::SETTINGS.ssl_private_key.to_s.strip.empty?
+          missing_ssl << 'ssl_ca_file' if Proxy::SETTINGS.ssl_ca_file.to_s.strip.empty?
+
+          if missing_ssl.empty?
+            options['choria-ssl-cert'] ||= Proxy::SETTINGS.ssl_certificate
+            options['choria-ssl-key']  ||= Proxy::SETTINGS.ssl_private_key
+            options['choria-ssl-ca']   ||= Proxy::SETTINGS.ssl_ca_file
+          else
+            logger.warn("Choria: cannot default SSL from proxy settings, missing: #{missing_ssl.join(', ')}. " \
+                        "Set choria-ssl-cert, choria-ssl-key, and choria-ssl-ca explicitly.")
+          end
+        elsif !options.key?('choria-ssl-cert')
+          logger.info('Choria: custom config file provided without SSL options. ' \
+                      'SSL settings will be read from the config file.')
+        end
+
+        unless options.key?('choria-mcollective-certname')
+          cert_path = options['choria-ssl-cert']
+          if cert_path.nil? && user_provided_config
+            logger.info('Choria: custom config file provided, certname will come from the config file or ' \
+                        "default to '<user>.mcollective'. Set 'choria-mcollective-certname' if needed.")
+          elsif cert_path.nil?
+            logger.warn('Choria: no choria-ssl-cert available, cannot derive mcollective-certname.')
+          elsif !File.readable?(cert_path)
+            logger.warn("Choria: cannot derive mcollective-certname, cert at #{cert_path} is not readable. " \
+                        "Set 'choria-mcollective-certname' explicitly or fix file permissions.")
+          else
+            begin
+              cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
+              cn = cert.subject.to_a.find { |name, _, _| name == 'CN' }
+              if cn
+                options['choria-mcollective-certname'] = cn[1]
+              else
+                logger.warn("Choria: certificate at #{cert_path} has no CN. " \
+                            "Set 'choria-mcollective-certname' explicitly.")
+              end
+            rescue OpenSSL::X509::CertificateError => e
+              raise Error.new(
+                message: "Cannot read Choria certificate at #{cert_path}: #{e.message}. " \
+                         "Set 'choria-mcollective-certname' explicitly or fix the certificate file."
+              )
+            end
+          end
+        end
+
+        logger.info("Choria options after defaults: #{scrub(options, options.inspect)}")
+      end
 
       # Validate option types
       options = options.to_h do |key, value|
