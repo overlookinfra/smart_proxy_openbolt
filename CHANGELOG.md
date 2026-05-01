@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/overlookinfra/smart_proxy_openbolt/tree/1.2.0) (2026-05-01)
+
+[Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/1.1.0...1.2.0)
+
+**Implemented enhancements:**
+
+- Add Choria transport support to OPENBOLT\_OPTIONS [\#44](https://github.com/overlookinfra/smart_proxy_openbolt/pull/44) ([nmburgan](https://github.com/nmburgan))
+
+**Merged pull requests:**
+
+- Add zero config support, rename flags, various fixes [\#45](https://github.com/overlookinfra/smart_proxy_openbolt/pull/45) ([nmburgan](https://github.com/nmburgan))
+- Add prepare\_release and update release automation [\#43](https://github.com/overlookinfra/smart_proxy_openbolt/pull/43) ([nmburgan](https://github.com/nmburgan))
+- Update build tasks [\#42](https://github.com/overlookinfra/smart_proxy_openbolt/pull/42) ([nmburgan](https://github.com/nmburgan))
+
 ## [1.1.0](https://github.com/overlookinfra/smart_proxy_openbolt/tree/1.1.0) (2026-04-16)
 
 [Full Changelog](https://github.com/overlookinfra/smart_proxy_openbolt/compare/0.1.1...1.1.0)
