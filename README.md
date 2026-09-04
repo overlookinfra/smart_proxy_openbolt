@@ -208,6 +208,8 @@ bundle exec rake build:rpm   # Build RPM
 bundle exec rake build:deb   # Build DEB
 ```
 
+To build both packages in CI instead, run the [Build Packages](../../actions/workflows/build.yml) workflow. It uploads the resulting RPM and DEB as a workflow artifact.
+
 ### Environment Variables
 
 | Variable | Default | Description |

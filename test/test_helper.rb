@@ -1,3 +1,5 @@
+ENV['RACK_ENV'] = 'test'
+
 require 'test/unit'
 require 'mocha/test_unit'
 require 'rack/test'
