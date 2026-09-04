@@ -1,0 +1,47 @@
+---
+name: Build Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      foreman_version:
+        description: 'Foreman version to build against (e.g. 3.18, or nightly). Defaults to the latest stable release.'
+        required: false
+        default: ''
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build RPM and DEB packages
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Set Foreman version
+        if: inputs.foreman_version != ''
+        env:
+          INPUT_FOREMAN_VERSION: ${{ inputs.foreman_version }}
+        run: echo "FOREMAN_VERSION=$INPUT_FOREMAN_VERSION" >> "$GITHUB_ENV"
+
+      - name: Build RPM
+        run: bundle exec rake build:rpm
+
+      - name: Build DEB
+        run: bundle exec rake build:deb
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: smart_proxy_openbolt-packages
+          path: |
+            pkg/*.rpm
+            pkg/*.deb
