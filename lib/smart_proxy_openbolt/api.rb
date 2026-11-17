@@ -38,6 +38,7 @@ module Proxy::OpenBolt
     post '/launch/task' do
       catch_errors do
         begin
+          request.body.rewind
           data = JSON.parse(request.body.read)
         rescue JSON::ParserError => e
           raise Error.new(message: "Invalid JSON in request body: #{e.message}")
